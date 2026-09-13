@@ -1,0 +1,150 @@
+#portfolio .wb-rail-zone {
+    position: absolute;
+    z-index: 5;
+    top: 62px;
+    right: 0;
+    bottom: 104px;
+    width: 80px;
+    border-left: 1px solid rgba(178, 224, 191, .055);
+    background: linear-gradient(90deg, transparent, rgba(12, 21, 16, .52));
+    -webkit-mask-image: linear-gradient(transparent, #000 13%, #000 88%, transparent);
+    mask-image: linear-gradient(transparent, #000 13%, #000 88%, transparent);
+    pointer-events: none;
+  }
+
+  #portfolio .wb-rail {
+    position: absolute;
+    z-index: 50;
+    top: 166px;
+    right: 0;
+    width: 80px;
+    height: 318px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    overflow: visible;
+    pointer-events: auto;
+    touch-action: pan-y;
+  }
+
+  #portfolio .wb-rail::before {
+    content: "PAGE INDEX";
+    position: absolute;
+    top: -14px;
+    right: 16px;
+    color: #687970;
+    font: 700 5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: .16em;
+    writing-mode: vertical-rl;
+  }
+
+  #portfolio .wb-mark {
+    --wb-line-length: 22px;
+    --wb-line-height: 1.2px;
+    --wb-line-opacity: .52;
+    --wb-glow: 0;
+    position: relative;
+    width: 80px;
+    height: 44px;
+    flex: 0 0 44px;
+    padding: 0;
+    border: 0;
+    color: var(--wb-ink);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  #portfolio .wb-mark-line {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    width: var(--wb-line-length);
+    height: var(--wb-line-height);
+    transform: translateY(-50%);
+    opacity: var(--wb-line-opacity);
+    border-radius: 999px 0 0 999px;
+    background: linear-gradient(90deg, rgba(164, 142, 229, .86), rgba(143, 239, 171, .98));
+    box-shadow: 0 0 calc(4px + 14px * var(--wb-glow)) rgba(114, 229, 149, calc(.08 + .28 * var(--wb-glow)));
+    pointer-events: none;
+  }
+
+  #portfolio .wb-mark[aria-current="page"] .wb-mark-line { width: max(var(--wb-line-length), 37px); height: max(var(--wb-line-height), 2px); opacity: 1; }
+
+  #portfolio .wb-mark-label {
+    position: absolute;
+    top: 50%;
+    right: calc(var(--wb-line-length) + 21px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: auto;
+    min-height: 36px;
+    padding: 7px 10px;
+    white-space: nowrap;
+    transform: translate(12px, -50%);
+    opacity: 0;
+    border: 0;
+    border-bottom: 1px solid rgba(171, 237, 189, .18);
+    border-radius: 4px;
+    background: linear-gradient(90deg, rgba(15, 28, 20, .94), rgba(15, 28, 20, .7));
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    pointer-events: none;
+    transition: opacity 150ms ease, transform 240ms cubic-bezier(.16, 1, .3, 1);
+  }
+
+  #portfolio .wb-mark.is-nearest .wb-mark-label,
+  #portfolio .wb-mark:focus-visible .wb-mark-label {
+    transform: translate(0, -50%);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Only the visible label extends its button hit area across the line gap. */
+  #portfolio .wb-mark-label::after {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: -4px;
+    bottom: -4px;
+    width: calc(var(--wb-line-length) + 21px);
+    pointer-events: inherit;
+  }
+  #portfolio .wb-mark:focus-visible { outline: 1px solid rgba(146, 239, 171, .6); outline-offset: -4px; }
+  #portfolio .wb-mark-label b { margin: 0; color: #eef8f0; font-size: 15px; font-weight: 500; letter-spacing: .04em; }
+  #portfolio .wb-mark-label em { position: static; width: auto; height: auto; transform: none; border: 0; background: none; color: #8eac98; font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-style: normal; }
+  #portfolio .wb-mark[aria-current="page"] .wb-mark-label b { color: var(--wb-green); }
+
+  #portfolio .wb-rail-count { position: absolute; right: 14px; bottom: -10px; color: #718278; font: 700 6px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .1em; }
+  #portfolio .wb-rail-count b { color: #9ce8b0; font-weight: 700; }
+
+  #portfolio .wb-nav-toggle { display: none; position: absolute; z-index: 60; top: 52px; right: 18px; min-height: 44px; padding: 0 13px; border: 1px solid rgba(166, 223, 184, .25); border-radius: 8px; background: #12251a; color: #dff5e5; font: inherit; font-size: 13px; cursor: pointer; }
+  #portfolio .wb-nav-toggle span { color: #8dddA3; margin-left: 12px; }
+  #portfolio .wb-nav-panel { position: absolute; z-index: 61; top: 104px; right: 18px; width: min(256px, calc(100% - 36px)); padding: 12px; border: 1px solid rgba(170, 227, 187, .23); border-radius: 12px; background: rgba(12, 27, 18, .98); box-shadow: 0 20px 50px rgba(0, 0, 0, .28); }
+  #portfolio .wb-nav-panel[hidden] { display: none; }
+  #portfolio .wb-nav-panel p { margin: 3px 9px 9px; color: #98b3a1; font-size: 11px; }
+  #portfolio .wb-nav-item { display: flex; align-items: center; gap: 13px; width: 100%; min-height: 46px; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: #e3f0e7; font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+  #portfolio .wb-nav-item span { color: #8da997; font: 500 10px/1 ui-monospace, monospace; }
+  #portfolio .wb-nav-item small { margin-left: auto; color: #9beaaf; font-size: 10px; }
+  #portfolio .wb-nav-item:hover, #portfolio .wb-nav-item:focus-visible { background: rgba(145, 238, 171, .08); outline: 1px solid rgba(145, 238, 171, .35); }
+  #portfolio .wb-nav-item[aria-current="page"] { color: #9beaaf; background: rgba(145, 238, 171, .06); }
+  #portfolio .wb-nav-toggle:focus-visible { outline: 2px solid #9beaaf; outline-offset: 3px; }
+  #portfolio .wb-nav-status { margin: 12px 0 0; color: #4f6657; font-size: 13px; line-height: 1.6; min-height: 21px; }
+  @media (max-width: 920px), (pointer: coarse) {
+    #portfolio .wb-rail, #portfolio .wb-rail-zone { display: none; }
+    #portfolio .wb-nav-toggle { display: block; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #portfolio .wb-mark-label { transition: none; transform: translate(0, -50%); }
+  }
+
+
+#portfolio .wb-rail { position:fixed; top:50%; right:8px; transform:translateY(-50%); z-index:100; }
+#portfolio .wb-nav-toggle { position:fixed; top:16px; right:18px; z-index:110; }
+#portfolio .wb-nav-panel { position:fixed; top:70px; right:18px; z-index:111; max-height:calc(100dvh - 90px); overflow:auto; }
+#portfolio .wb-mark { display:block; text-decoration:none; }
+#portfolio .wb-nav-item { text-decoration:none; }
+#portfolio .wb-rail-count { font-size:12px; }
+#portfolio .wb-rail::before { display:none; }
