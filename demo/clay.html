@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>黏土人物 · Clay Bust</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#EFEDE6;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+  .fallback{position:fixed;inset:0;background:radial-gradient(60% 50% at 50% 45%,#F5F3ED 0%,#EFEDE6 60%,#E6E3DA 100%)}
+</style>
+</head>
+<body>
+<canvas id="c" role="img" aria-label="黏土质感的三维人物半身像：蓬松的波浪卷发、深色圆领上衣，会随着鼠标轻轻转头看向你"></canvas>
+<script>
+/* ==================================================================================================
+   黏土半身像 —— 手写 WebGL1，单文件、零依赖、可 file:// 直接打开
+   · 所有形体都由 球体 / 胶囊体 / 球冠 / 圆环 经多频噪声位移得到
+   · 材质是完全哑光的黏土：包裹式 Lambert + 简化 Oren-Nayar + 宽而淡的高光 + 烘焙 AO + 冷暖补光
+   · 部件矩阵一律是刚体变换（旋转+平移），缩放/形变全部烘焙进几何，保证法线正确
+   ================================================================================================== */
+(function(){
+'use strict';
+
+/* -------------------------------------------------------------------------- §1 数学 */
+function m4id(){ return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); }
+function m4mul(a,b,out){                       // out = a * b（列主序）
+  out = out || new Float32Array(16);
+  for(let c=0;c<4;c++){
+    const b0=b[c*4], b1=b[c*4+1], b2=b[c*4+2], b3=b[c*4+3];
+    for(let r=0;r<4;r++) out[c*4+r] = a[r]*b0 + a[4+r]*b1 + a[8+r]*b2 + a[12+r]*b3;
+  }
+  return out;
+}
+function m4mulN(list,out){
+  out = m4mul(list[0],list[1],out);
+  for(let i=2;i<list.length;i++) m4mul(out,list[i],out);
+  return out;
+}
+function m4persp(fovy,aspect,near,far,out){
+  out = out || new Float32Array(16); out.fill(0);
+  const f = 1/Math.tan(fovy/2), nf = 1/(near-far);
+  out[0]=f/aspect; out[5]=f; out[10]=(far+near)*nf; out[11]=-1; out[14]=2*far*near*nf;
+  return out;
+}
+function m4lookAt(eye,center,up,out){
+  out = out || new Float32Array(16);
+  let zx=eye[0]-center[0], zy=eye[1]-center[1], zz=eye[2]-center[2];
+  let l=Math.hypot(zx,zy,zz)||1; zx/=l; zy/=l; zz/=l;
+  let xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
+  l=Math.hypot(xx,xy,xz)||1; xx/=l; xy/=l; xz/=l;
+  const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+  out[0]=xx; out[1]=yx; out[2]=zx; out[3]=0;
+  out[4]=xy; out[5]=yy; out[6]=zy; out[7]=0;
+  out[8]=xz; out[9]=yz; out[10]=zz; out[11]=0;
+  out[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+  out[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+  out[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+  out[15]=1; return out;
+}
+// T * Ry * Rx * Rz （刚体，缩放另走 scale）
+function m4trs(t,rx,ry,rz,out){
+  out = out || new Float32Array(16);
+  const cx=Math.cos(rx), sx=Math.sin(rx), cy=Math.cos(ry), sy=Math.sin(ry), cz=Math.cos(rz), sz=Math.sin(rz);
+  const r00=cy*cz+sy*sx*sz, r01=-cy*sz+sy*sx*cz, r02=sy*cx;
+  const r10=cx*sz,          r11=cx*cz,           r12=-sx;
+  const r20=-sy*cz+cy*sx*sz,r21=sy*sz+cy*sx*cz,  r22=cy*cx;
+  out[0]=r00; out[1]=r10; out[2]=r20; out[3]=0;
+  out[4]=r01; out[5]=r11; out[6]=r21; out[7]=0;
+  out[8]=r02; out[9]=r12; out[10]=r22; out[11]=0;
+  out[12]=t[0]; out[13]=t[1]; out[14]=t[2]; out[15]=1;
+  return out;
+}
+// 四个参数版：T * (R) * S，S 直接烘焙进几何时用不到
+function m4basis(ax,ay,az,out){                 // 三根正交基作为列
+  out = out || new Float32Array(16);
+  out[0]=ax[0]; out[1]=ax[1]; out[2]=ax[2]; out[3]=0;
+  out[4]=ay[0]; out[5]=ay[1]; out[6]=ay[2]; out[7]=0;
+  out[8]=az[0]; out[9]=az[1]; out[10]=az[2]; out[11]=0;
+  out[12]=0; out[13]=0; out[14]=0; out[15]=1;
+  return out;
+}
+function m3normal(m,out){                       // 3x3 逆转置
+  out = out || new Float32Array(9);
+  const a=m[0],b=m[1],c=m[2], d=m[4],e=m[5],f=m[6], g=m[8],h=m[9],i=m[10];
+  const A=e*i-f*h, B=f*g-d*i, C=d*h-e*g;
+  let det = a*A + b*B + c*C; if(Math.abs(det)<1e-9) det = 1e-9;
+  const id = 1/det;
+  out[0]=A*id;           out[1]=B*id;           out[2]=C*id;
+  out[3]=(c*h-b*i)*id;   out[4]=(a*i-c*g)*id;   out[5]=(b*g-a*h)*id;
+  out[6]=(b*f-c*e)*id;   out[7]=(c*d-a*f)*id;   out[8]=(a*e-b*d)*id;
+  return out;
+}
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function smoothstep(e0,e1,x){ const t=clamp((x-e0)/((e1-e0)||1e-9),0,1); return t*t*(3-2*t); }
+function mix(a,b,t){ return a+(b-a)*t; }
+function nrm3(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; }
+
+/* -------------------------------------------------------------------------- §2 噪声 */
+function hash3(i,j,k){
+  let n = Math.imul(i,73856093) ^ Math.imul(j,19349663) ^ Math.imul(k,83492791);
+  n = Math.imul(n ^ (n>>>15), 2246822519);
+  n = Math.imul(n ^ (n>>>13), 3266489917);
+  return ((n ^ (n>>>16))>>>0) / 4294967296;
+}
+function vnoise(x,y,z){                          // 三线性平滑插值值噪声 [0,1]
+  const ix=Math.floor(x), iy=Math.floor(y), iz=Math.floor(z);
+  const fx=x-ix, fy=y-iy, fz=z-iz;
+  const ux=fx*fx*(3-2*fx), uy=fy*fy*(3-2*fy), uz=fz*fz*(3-2*fz);
+  const c000=hash3(ix,iy,iz),     c100=hash3(ix+1,iy,iz);
+  const c010=hash3(ix,iy+1,iz),   c110=hash3(ix+1,iy+1,iz);
+  const c001=hash3(ix,iy,iz+1),   c101=hash3(ix+1,iy,iz+1);
+  const c011=hash3(ix,iy+1,iz+1), c111=hash3(ix+1,iy+1,iz+1);
+  return mix(mix(mix(c000,c100,ux),mix(c010,c110,ux),uy),
+             mix(mix(c001,c101,ux),mix(c011,c111,ux),uy), uz);
+}
+function fbm(x,y,z,oct){                         // 多频叠加，返回 [-1,1]
+  oct = oct||2; let a=0, amp=1, f=1, sum=0;
+  for(let o=0;o<oct;o++){ a += vnoise(x*f+31.7,y*f+17.3,z*f+7.9)*amp; sum+=amp; amp*=0.5; f*=2.07; }
+  return (a/sum)*2-1;
+}
+function mulberry32(a){                          // 固定种子，造型每次一致
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+/* -------------------------------------------------------------------------- §3 基础几何 */
+// UV 球：经度取模无接缝，两极各一个顶点
+function genSphere(sw,sh){
+  const pos=[0,1,0];
+  for(let i=1;i<sh;i++){
+    const phi=i*Math.PI/sh, y=Math.cos(phi), r=Math.sin(phi);
+    for(let j=0;j<sw;j++){ const th=j*2*Math.PI/sw; pos.push(r*Math.cos(th), y, r*Math.sin(th)); }
+  }
+  pos.push(0,-1,0);
+  const last=1+(sh-1)*sw;
+  const ring=(i,j)=>{ const k=((j%sw)+sw)%sw; return 1+(i-1)*sw+k; };
+  const tri=[];
+  for(let j=0;j<sw;j++) tri.push(0, ring(1,j), ring(1,j+1));
+  for(let i=1;i<sh-1;i++) for(let j=0;j<sw;j++){
+    const a=ring(i,j), b=ring(i,j+1), c=ring(i+1,j+1), d=ring(i+1,j);
+    tri.push(a,b,c, a,c,d);
+  }
+  for(let j=0;j<sw;j++) tri.push(last, ring(sh-1,j+1), ring(sh-1,j));
+  return { pos:new Float32Array(pos), idx:new Uint16Array(tri) };
+}
+// 球冠：绕 +Y，从极点铺到 phiMax；边缘开放（双面渲染，无需背面）
+function genCap(sw,sh,phiMax){
+  const pos=[0,1,0];
+  for(let i=1;i<=sh;i++){
+    const phi=phiMax*i/sh, y=Math.cos(phi), r=Math.sin(phi);
+    for(let j=0;j<sw;j++){ const th=j*2*Math.PI/sw; pos.push(r*Math.cos(th), y, r*Math.sin(th)); }
+  }
+  const ring=(i,j)=>{ const k=((j%sw)+sw)%sw; return 1+(i-1)*sw+k; };
+  const tri=[];
+  for(let j=0;j<sw;j++) tri.push(0, ring(1,j), ring(1,j+1));
+  for(let i=1;i<sh;i++) for(let j=0;j<sw;j++){
+    const a=ring(i,j), b=ring(i,j+1), c=ring(i+1,j+1), d=ring(i+1,j);
+    tri.push(a,b,c, a,c,d);
+  }
+  return { pos:new Float32Array(pos), idx:new Uint16Array(tri) };
+}
+// 椭圆环（圆领）
+function genTorus(su,sv,Rx,Rz,r){
+  const pos=[], tri=[];
+  for(let i=0;i<su;i++){
+    const u=i/su*Math.PI*2, cu=Math.cos(u), siu=Math.sin(u);
+    for(let j=0;j<sv;j++){
+      const v=j/sv*Math.PI*2, cv=Math.cos(v), sv2=Math.sin(v);
+      pos.push((Rx+r*cv)*cu, r*sv2, (Rz+r*cv)*siu);
+    }
+  }
+  const V=(i,j)=>((((i%su)+su)%su)*sv + (((j%sv)+sv)%sv));
+  for(let i=0;i<su;i++) for(let j=0;j<sv;j++){
+    const a=V(i,j), b=V(i+1,j), c=V(i+1,j+1), d=V(i,j+1);
+    tri.push(a,b,c, a,c,d);
+  }
+  return { pos:new Float32Array(pos), idx:new Uint16Array(tri) };
+}
+// 顶点法线：面法线面积加权
+function calcNormals(pos,idx){
+  const n=new Float32Array(pos.length);
+  for(let t=0;t<idx.length;t+=3){
+    const a=idx[t]*3, b=idx[t+1]*3, c=idx[t+2]*3;
+    const e1x=pos[b]-pos[a], e1y=pos[b+1]-pos[a+1], e1z=pos[b+2]-pos[a+2];
+    const e2x=pos[c]-pos[a], e2y=pos[c+1]-pos[a+1], e2z=pos[c+2]-pos[a+2];
+    const nx=e1y*e2z-e1z*e2y, ny=e1z*e2x-e1x*e2z, nz=e1x*e2y-e1y*e2x;
+    n[a]+=nx; n[a+1]+=ny; n[a+2]+=nz;
+    n[b]+=nx; n[b+1]+=ny; n[b+2]+=nz;
+    n[c]+=nx; n[c+1]+=ny; n[c+2]+=nz;
+  }
+  for(let i=0;i<n.length;i+=3){
+    const l=Math.hypot(n[i],n[i+1],n[i+2])||1; n[i]/=l; n[i+1]/=l; n[i+2]/=l;
+  }
+  return n;
+}
+
+/* -------------------------------------------------------------------------- §4 部件装配 */
+const VP=[], VN=[], VA=[], VI=[];   // 位置 / 法线 / 顶点AO / 索引（全局合并，逐部件 drawElements）
+const PARTS=[], EYES=[];
+const sphereCache=new Map();
+function sphereGeo(sw,sh){
+  const k=sw+'_'+sh;
+  if(!sphereCache.has(k)) sphereCache.set(k,genSphere(sw,sh));
+  return sphereCache.get(k);
+}
+/*
+  spec = {
+    prim : {t:'sphere'|'cap'|'torus', sw,sh, capH?, phiMax?, Rx?,Rz?,r?}
+    preRot: [rx,ry,rz]   // 可选，先转几何（如把球冠轴从 +Y 转到 +Z）
+    scale: [sx,sy,sz]    // 烘焙进几何
+    shape: fn(ux,uy,uz,x,y,z)->[x,y,z]   自定义形变
+    disp : fn(ux,uy,uz,x,y,z,nx,ny,nz)->沿法线位移量
+    ao   : fn(ux,uy,uz,x,y,z,d)->[0..1]
+    pos, rot | basis      // 刚体摆放
+    col, specK, specP, rim, emis, aoGain, group
+  }
+*/
+function addPart(o){
+  let prim;
+  if(o.prim.t==='sphere') prim = sphereGeo(o.prim.sw,o.prim.sh);
+  else if(o.prim.t==='cap') prim = genCap(o.prim.sw,o.prim.sh,o.prim.phiMax);
+  else prim = genTorus(o.prim.sw,o.prim.sh,o.prim.Rx,o.prim.Rz,o.prim.r);
+  const nv = prim.pos.length/3;
+  const U = new Float32Array(prim.pos);          // 单位空间坐标（噪声取样基准）
+  const pos = new Float32Array(nv*3);
+  const sc = o.scale||[1,1,1];
+  const pr = o.preRot;
+  for(let i=0;i<nv;i++){
+    let ux=U[i*3], uy=U[i*3+1], uz=U[i*3+2];
+    if(pr){ const m=m4trs([0,0,0],pr[0],pr[1],pr[2]);
+      const a=ux,b=uy,c=uz; ux=m[0]*a+m[4]*b+m[8]*c; uy=m[1]*a+m[5]*b+m[9]*c; uz=m[2]*a+m[6]*b+m[10]*c; }
+    if(o.prim.capH) uy += o.prim.capH*Math.sign(uy)*smoothstep(0,0.30,Math.abs(uy));  // 单位空间内 球→胶囊
+    let x=ux*sc[0], y=uy*sc[1], z=uz*sc[2];
+    if(o.shape){ const r=o.shape(ux,uy,uz,x,y,z); x=r[0]; y=r[1]; z=r[2]; }
+    pos[i*3]=x; pos[i*3+1]=y; pos[i*3+2]=z;
+  }
+  let nrm = calcNormals(pos,prim.idx);
+  const ao = new Float32Array(nv).fill(1);
+  if(o.disp){
+    for(let i=0;i<nv;i++){
+      const d = o.disp(U[i*3],U[i*3+1],U[i*3+2], pos[i*3],pos[i*3+1],pos[i*3+2], nrm[i*3],nrm[i*3+1],nrm[i*3+2])||0;
+      pos[i*3]+=nrm[i*3]*d; pos[i*3+1]+=nrm[i*3+1]*d; pos[i*3+2]+=nrm[i*3+2]*d;
+      if(o.ao) ao[i]=o.ao(U[i*3],U[i*3+1],U[i*3+2], pos[i*3],pos[i*3+1],pos[i*3+2], d);
+    }
+    nrm = calcNormals(pos,prim.idx);
+  }else if(o.ao){
+    for(let i=0;i<nv;i++) ao[i]=o.ao(U[i*3],U[i*3+1],U[i*3+2], pos[i*3],pos[i*3+1],pos[i*3+2], 0);
+  }
+  const M = o.basis ? (function(){
+      // 保证基底右手系：否则三角形绕向反转、法线被 gl_FrontFacing 翻反（会出现大片错误平面）
+      let ax=o.basis[0], ay=o.basis[1], az=o.basis[2];
+      const det = ax[0]*(ay[1]*az[2]-ay[2]*az[1]) - ax[1]*(ay[0]*az[2]-ay[2]*az[0]) + ax[2]*(ay[0]*az[1]-ay[1]*az[0]);
+      if(det<0) az=[-az[0],-az[1],-az[2]];
+      return m4mul(m4trs(o.pos||[0,0,0],0,0,0), m4basis(ax,ay,az));
+    })()
+    : m4trs(o.pos||[0,0,0], (o.rot||[0,0,0])[0],(o.rot||[0,0,0])[1],(o.rot||[0,0,0])[2]);
+  const base = VP.length/3;
+  for(let i=0;i<nv;i++){
+    const x=pos[i*3], y=pos[i*3+1], z=pos[i*3+2];
+    VP.push(M[0]*x+M[4]*y+M[8]*z+M[12], M[1]*x+M[5]*y+M[9]*z+M[13], M[2]*x+M[6]*y+M[10]*z+M[14]);
+    const nx=nrm[i*3], ny=nrm[i*3+1], nz=nrm[i*3+2];      // M 为刚体：直接转方向
+    VN.push(M[0]*nx+M[4]*ny+M[8]*nz, M[1]*nx+M[5]*ny+M[9]*nz, M[2]*nx+M[6]*ny+M[10]*nz);
+    VA.push(ao[i]);
+  }
+  for(let i=0;i<prim.idx.length;i++) VI.push(prim.idx[i]+base);
+  const rec = { off:VI.length-prim.idx.length, n:prim.idx.length, dyn:o.dyn||null, group:o.group||'head',
+                col:o.col, specK:o.specK, specP:o.specP, rim:o.rim, emis:o.emis||0,
+                aoGain:(o.aoGain===undefined?1:o.aoGain), name:o.name||'' };
+  PARTS.push(rec);
+  return rec;
+}
+// 常用位移：以 figure 世界单位计频率
+function clayDisp(freq,amp,oct,ox,oy,oz){
+  ox=ox||0; oy=oy||0; oz=oz||0;
+  return (u1,u2,u3,x,y,z)=> fbm(x*freq+ox,y*freq+oy,z*freq+oz,oct)*amp;
+}
+function unitDisp(freq,amp,oct){ return (u1,u2,u3)=> fbm(u1*freq,u2*freq,u3*freq,oct)*amp; }
+
+/* ==============================================================================
+   §5 头部造型（figure 空间：头顶 +0.50，下巴 -0.50，脸朝 +Z）
+   ============================================================================== */
+const HW=0.375, HH=0.50, HD=0.40;                     // 颅骨椭球半宽/半高/半深
+const EYE = { x:0.160, y:0.010, z:0.312, rx:0.074, ry:0.040, rz:0.030 };
+const SKIN=[0.910,0.788,0.682], SKIN2=[0.890,0.762,0.655], HAIRC=[0.352,0.256,0.184];
+
+// 单位球 → 头部局部：鹅蛋脸 + 收下颌 + 颏部前移 + 眼窝 + 眉弓 + 后脑
+function headShape(ux,uy,uz){
+  let x=ux*HW, y=uy*HH, z=uz*HD;
+  const t=Math.max(0,-uy);
+  x *= 1 - 0.36*Math.pow(t,1.75);                     // 下颌收窄，下颌线更清楚
+  z *= 1 - 0.10*Math.pow(t,2.2);
+  x *= 1 + 0.05*Math.exp(-Math.pow((uy+0.16)/0.34,2));// 颧骨
+  z -= 0.045*Math.pow(Math.max(0,-uz),1.4)*(0.5+0.5*Math.max(0,uy+0.2));  // 后脑
+  z -= 0.020*Math.max(0,uz)*Math.max(0,uz)*Math.max(0,1-Math.abs(uy)*1.2); // 前脸略平
+  z += 0.062*Math.exp(-(ux*ux/0.026 + Math.pow(uy+0.80,2)/0.055));         // 颏部前移
+  z -= 0.012*Math.exp(-Math.pow((uy-0.62)/0.22,2))*Math.max(0,uz);         // 头顶略平
+  for(let s=-1;s<=1;s+=2){                             // 眼窝：宽而浅的坑，眼球只露一小片
+    const dx=(x-s*EYE.x)/0.098, dy=(y-EYE.y)/0.062 + s*0.20*dx;   // 斜置 → 眼尾上挑
+    z -= 0.034*Math.exp(-(dx*dx+dy*dy))*Math.max(0,uz);
+  }
+  for(let s=-1;s<=1;s+=2){                             // 眉弓微凸
+    const dx=(x-s*EYE.x)/0.125, dy=(y-0.086)/0.050;
+    z += 0.016*Math.exp(-(dx*dx+dy*dy));
+  }
+  return [x,y,z];
+}
+
+/* 头发：在颅骨椭球上做"发际线 + 体积"的径向调制
+   dir(θ,φ)=(sinφ·sinθ, cosφ, sinφ·cosθ)，θ=0 正前(+Z) */
+function hairDir(th,ph){ const s=Math.sin(ph); return [s*Math.sin(th), Math.cos(ph), s*Math.cos(th)]; }
+function hairLinePh(th){                               // 发际线所在极角：前高、侧低、后最低
+  let ph = 1.58 - 0.60*Math.cos(th);
+  ph += 0.085*Math.cos(2*th+0.6);
+  ph -= 0.10*Math.exp(-Math.pow((th+0.40)/0.30,2));    // 侧分缝处略低
+  return ph;
+}
+function hairMul(th,ph){
+  const line = hairLinePh(th);
+  const above = smoothstep(line+0.16, line-0.10, ph);  // 1=发区 0=头皮区
+  let m = mix(0.880, 1.165, above);
+  const absTh=Math.abs(th);
+  m += 0.140*Math.exp(-Math.pow((absTh-1.50)/0.82,2))*smoothstep(line+0.70, line-0.05, ph);  // 鬓发蓬起
+  m += 0.105*Math.exp(-Math.pow((absTh-Math.PI)/0.98,2))*smoothstep(line+0.70, line-0.10, ph); // 后脑
+  m += 0.060*smoothstep(line+0.35, line-0.35, ph);     // 顶部整体加厚
+  m -= 0.055*Math.exp(-Math.pow((th+0.40)/0.17,2))*smoothstep(line, 0.35, ph);  // 分缝凹槽
+  return m;
+}
+function hairShape(ux,uy,uz){
+  const ph=Math.acos(clamp(uy,-1,1)), th=Math.atan2(ux,uz);
+  const m=hairMul(th,ph);
+  const h=headShape(ux,uy,uz);        // 沿用头部形状做径向缩放 → m<1 时必然埋在头里
+  let x=h[0]*m, y=h[1]*m, z=h[2]*m;
+  const tip = smoothstep(0.80,1.0,Math.abs(ux))*smoothstep(0.2,0.85,ph);   // 发梢外翻
+  x*=1+0.10*tip; z*=1+0.06*tip; y-=0.014*tip;
+  return [x,y,z];
+}
+// 头发位移：低频团块 + 中频起伏 + 高频碎屑 + 横向波浪脊（波浪卷的关键）
+function hairDisp(ux,uy,uz,x,y,z){
+  let d  = fbm(x*2.9+11.3, y*2.9+5.7, z*2.9+3.1, 2)*0.042;
+  d += fbm(x*6.4+2.2,  y*6.4+9.1, z*6.4+1.7, 2)*0.014;
+  const ph=Math.acos(clamp(uy,-1,1)), th=Math.atan2(ux,uz);
+  const w=smoothstep(hairLinePh(th)+0.50, hairLinePh(th)-0.30, ph);
+  d += Math.sin(ph*6.1 + 0.85*Math.sin(3*th+1.1))*0.0295*w;      // 横向波浪脊
+  d += Math.sin(ph*11.5+ 1.30*Math.sin(2*th-0.4))*0.0115*w;      // 次级细波
+  d += Math.sin(th*5.0 + 0.6*ph)*0.0080*w;                       // 顺着发流的细起伏
+  return d;
+}
+function hairAo(ux,uy,uz,x,y,z,d){
+  const ph=Math.acos(clamp(uy,-1,1)), th=Math.atan2(ux,uz), line=hairLinePh(th);
+  let a = 1 - 0.20*smoothstep(line+0.30, line-0.02, ph);
+  a -= 0.17*Math.exp(-Math.pow((th+0.40)/0.20,2));
+  a *= 1 - 0.17*clamp(-d/0.06,0,1);
+  return clamp(a,0.55,1);
+}
+
+function buildHead(S){
+  /* ---------------- 头 / 耳 ---------------- */
+  addPart({ name:'head', prim:{t:'sphere',sw:S.head[0],sh:S.head[1]}, shape:headShape,
+    disp:clayDisp(3.4,0.0075,2),
+    ao:(a,b,c,x,y,z)=>clamp(1-0.16*smoothstep(0.10,0.34,y)*smoothstep(0.05,0.30,z),0.5,1),
+    col:SKIN, specK:0.045, specP:13, rim:0.126 });
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'ear', prim:{t:'sphere',sw:14,sh:10},
+      shape:(ux,uy,uz)=>[ux*0.048, uy*0.092, uz*0.052], disp:clayDisp(9,0.004,1),
+      pos:[s*0.342,-0.058,-0.018], rot:[0.10,-s*0.30,-s*0.16],
+      col:SKIN2, specK:0.045, specP:13, rim:0.117 });
+
+  /* ---------------- 眼睛（眼球 + 虹膜/瞳孔/高光 + 上下眼睑） ---------------- */
+  for(let s=-1;s<=1;s+=2){
+    const ec=[s*EYE.x, EYE.y, EYE.z];
+    const ballS=[EYE.rx,EYE.ry,EYE.rz];
+    const irisScale=[ballS[0]*1.008,ballS[1]*1.008,ballS[2]*1.008];
+    const lidScale=[ballS[0]*1.07,ballS[1]*1.07,ballS[2]*1.07];
+    addPart({ name:'eyeball', prim:{t:'sphere',sw:S.eye[0],sh:S.eye[1]}, scale:ballS, pos:ec, rot:[0,0,-s*0.20],
+      col:[0.775,0.752,0.722], specK:0.13, specP:22, rim:0.08, aoGain:0.95 });
+    const iris = addPart({ name:'iris', prim:{t:'cap',sw:18,sh:6,phiMax:0.78}, preRot:[Math.PI/2,0,0],
+      scale:irisScale, pos:ec, rot:[0,0,-s*0.20], dyn:{ pivot:ec },
+      col:[0.215,0.130,0.076], specK:0.28, specP:26, rim:0.135 });
+    const pupil = addPart({ name:'pupil', prim:{t:'cap',sw:16,sh:5,phiMax:0.30}, preRot:[Math.PI/2,0,0],
+      scale:[irisScale[0]*1.006,irisScale[1]*1.006,irisScale[2]*1.006], pos:ec, rot:[0,0,-s*0.20], dyn:{ pivot:ec },
+      col:[0.055,0.045,0.040], specK:0.18, specP:26, rim:0.072 });
+    addPart({ name:'glint', prim:{t:'cap',sw:12,sh:4,phiMax:0.085}, preRot:[Math.PI/2,0,0],
+      scale:[irisScale[0]*1.03,irisScale[1]*1.03,irisScale[2]*1.03], pos:ec, rot:[-0.40,-0.30,-s*0.20],
+      col:[1,1,1], specK:0.05, specP:20, rim:0, emis:0.72 });
+    // 上眼睑：球壳，绕眼球 X 轴下压即为眨眼
+    const lid = addPart({ name:'lid', prim:{t:'cap',sw:S.cap[0],sh:S.cap[1],phiMax:1.375},
+      scale:lidScale, disp:unitDisp(3.5,0.010,1), pos:ec, rot:[0,0,-s*0.20], dyn:{ pivot:ec },
+      col:SKIN, specK:0.05, specP:13, rim:0.126,
+      ao:(a,b,c)=>clamp(1-0.30*smoothstep(0.55,0.99,a),0.55,1) });
+    // 下眼睑：一道细脊，把眼球的下面框住，形成杏仁形开口
+    EYES.push({ iris, pupil, lid, pivot:ec });
+  }
+
+  /* ---------------- 眉毛：平直、略粗、深色（长轴放平） ---------------- */
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'brow', prim:{t:'sphere',sw:16,sh:10,capH:0.60},
+      scale:[0.021,0.050,0.023], disp:unitDisp(2.6,0.009,1),
+      pos:[s*0.164,0.086,0.348], rot:[-0.10, s*0.30, Math.PI/2+0.05],
+      col:[0.180,0.128,0.094], specK:0.10, specP:14, rim:0.135 });
+
+  /* ---------------- 鼻子：由一串互相重叠的黏土球捏成的鼻梁与鼻头 ---------------- */
+  // 一整块"由细到粗"的锥形黏土：鼻根窄、鼻头圆，一次成形（不再是一串小珠）
+  addPart({ name:'nose', prim:{t:'sphere',sw:20,sh:16},
+    shape:(ux,uy,uz)=>{
+      const rr=Math.sqrt(Math.max(0,1-uy*uy));
+      const dx=uz!==0||ux!==0?(ux/(rr||1)):0, dz=uz!==0||ux!==0?(uz/(rr||1)):0;
+      const w=0.021+0.040*(0.5-0.5*uy);          // 半宽：鼻根窄 → 鼻头宽
+      const d=0.023+0.026*(0.5-0.5*uy);          // 半深
+      const soft=Math.pow(1-Math.abs(uy),0.42);  // 两端收圆
+      return [dx*rr*w, uy*0.082, dz*rr*d*(0.60+0.40*soft)];
+    },
+    disp:unitDisp(2.6,0.006,1), pos:[0,-0.030,0.352], rot:[-0.06,0,0],
+    col:SKIN, specK:0.06, specP:13, rim:0.126 });
+  addPart({ name:'nosetip', prim:{t:'sphere',sw:16,sh:12}, scale:[0.048,0.035,0.034],
+    disp:unitDisp(2.6,0.006,1), pos:[0,-0.118,0.380],
+    col:SKIN, specK:0.06, specP:13, rim:0.126 });
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'nostril', prim:{t:'sphere',sw:14,sh:10}, scale:[0.032,0.028,0.034],
+      disp:unitDisp(3,0.005,1), pos:[s*0.042,-0.132,0.366], rot:[0,s*0.35,0],
+      col:SKIN2, specK:0.05, specP:13, rim:0.126 });
+
+  /* ---------------- 嘴唇（上唇两瓣有唇峰，下唇更饱满） ---------------- */
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'uplip', prim:{t:'sphere',sw:16,sh:10}, scale:[0.053,0.024,0.033],
+      disp:unitDisp(3.2,0.004,1), pos:[s*0.039,-0.256,0.306], rot:[0.12,s*0.26,0],
+      col:[0.842,0.615,0.548], specK:0.12, specP:16, rim:0.144 });
+  addPart({ name:'lowlip', prim:{t:'sphere',sw:18,sh:12}, scale:[0.070,0.035,0.038],
+    disp:unitDisp(2.8,0.005,1), pos:[0,-0.294,0.304], rot:[-0.10,0,0],
+    col:[0.860,0.638,0.566], specK:0.14, specP:16, rim:0.144 });
+  addPart({ name:'lipgap', prim:{t:'sphere',sw:14,sh:8}, scale:[0.066,0.005,0.017],
+    pos:[0,-0.274,0.311], rot:[0.05,0,0], col:[0.640,0.470,0.412], specK:0.04, specP:12, rim:0.081 });
+  addPart({ name:'lipmid', prim:{t:'sphere',sw:12,sh:8}, scale:[0.020,0.016,0.024],
+    pos:[0,-0.262,0.309], col:[0.842,0.615,0.548], specK:0.10, specP:16, rim:0.126 });
+
+  /* ---------------- 头发 ---------------- */
+  addPart({ name:'hairmass', prim:{t:'sphere',sw:S.hair[0],sh:S.hair[1]}, shape:hairShape,
+    disp:hairDisp, ao:hairAo, col:HAIRC, specK:0.075, specP:13, rim:0.18, aoGain:0.95 });
+
+  const rnd = mulberry32(77021);
+  const surf=(th,ph,m)=>{ const d=hairDir(th,ph); return [d[0]*HW*m, d[1]*HH*m, d[2]*HD*m]; };
+  // 取某点处的切向基
+  function frameAt(th,ph){
+    const nHat=nrm3([hairDir(th,ph)[0]*HW, hairDir(th,ph)[1]*HH, hairDir(th,ph)[2]*HD]);
+    const tTh=nrm3([Math.sin(ph)*Math.cos(th)*HW, 0, -Math.sin(ph)*Math.sin(th)*HD]);
+    let tPh=[Math.cos(ph)*Math.sin(th)*HW, -Math.sin(ph)*HH, Math.cos(ph)*Math.cos(th)*HD];
+    const dp=tPh[0]*nHat[0]+tPh[1]*nHat[1]+tPh[2]*nHat[2];
+    tPh=nrm3([tPh[0]-nHat[0]*dp, tPh[1]-nHat[1]*dp, tPh[2]-nHat[2]*dp]);
+    return { n:nHat, tTh, tPh };   // tPh 指向"向下流"
+  }
+  // 波浪卷团块：扁球贴着头发表面，短轴沿法线、长轴沿横向 → 剪影呈一道道波浪
+  const LOBES=[
+    [ 0.00,0.58,0.150],[-0.88,0.66,0.140],[ 0.98,0.70,0.135],
+    [-1.55,0.92,0.155],[ 1.55,0.95,0.155],[-2.35,0.76,0.145],
+    [ 2.45,0.80,0.145],[ 3.14,0.90,0.160],[-1.95,1.20,0.140],
+    [ 2.85,1.30,0.140],[-1.72,1.50,0.150],[ 1.74,1.48,0.150],
+    [-2.62,1.50,0.135],[ 3.10,1.66,0.145],[-0.34,0.40,0.145],
+    [ 0.58,0.44,0.140],[-1.15,1.26,0.135],[ 1.25,1.24,0.135],
+    [-2.95,0.50,0.130],[ 0.30,0.98,0.125],[-0.60,1.05,0.125],[ 0.95,1.02,0.125]
+  ];
+  for(const L of LOBES){
+    const th=L[0]+(rnd()-0.5)*0.20, ph=clamp(L[1]+(rnd()-0.5)*0.13,0.26,2.35);
+    const r=L[2]*(0.90+rnd()*0.24);
+    const m=hairMul(th,ph)*0.975;
+    const p=surf(th,ph,m), F=frameAt(th,ph);
+    const inset=r*(0.46+rnd()*0.22), jit=r*0.14;
+    const pos=[p[0]-F.n[0]*inset + F.tTh[0]*(rnd()-0.5)*jit + F.tPh[0]*(rnd()-0.5)*jit,
+               p[1]-F.n[1]*inset + F.tTh[1]*(rnd()-0.5)*jit + F.tPh[1]*(rnd()-0.5)*jit,
+               p[2]-F.n[2]*inset + F.tTh[2]*(rnd()-0.5)*jit + F.tPh[2]*(rnd()-0.5)*jit];
+    const f=1+(rnd()-0.5)*0.26, tone=0.94+rnd()*0.13;
+    addPart({ name:'lobe', prim:{t:'sphere',sw:S.lobe[0],sh:S.lobe[1]}, disp:unitDisp(2.4,0.070,2),
+      scale:[r*0.60, r*1.34*f, r*0.86], basis:[F.n, F.tPh, F.tTh], pos,
+      col:[HAIRC[0]*tone,HAIRC[1]*tone,HAIRC[2]*tone], specK:0.08, specP:13, rim:0.189, aoGain:0.95 });
+  }
+  // 刘海：从发际线往下垂的一排发片（长轴顺着"向下流"的切向，彼此重叠成一片帘）
+  const BANGS=[ [-0.72,1.05,0.108],[-0.46,1.00,0.148],[-0.19,0.98,0.132],
+                [ 0.08,0.98,0.155],[ 0.35,1.01,0.126],[ 0.62,1.06,0.140],[ 0.88,1.13,0.095] ];
+  for(const B of BANGS){
+    const th=B[0], ph=B[1], hlen=B[2]*0.86;
+    const p=surf(th,ph,1.045), F=frameAt(th,ph);
+    const pos=[p[0]+F.n[0]*0.045+F.tPh[0]*hlen*0.80,
+               p[1]+F.n[1]*0.045+F.tPh[1]*hlen*0.80,
+               p[2]+F.n[2]*0.045+F.tPh[2]*hlen*0.80];
+    const tone=0.94+rnd()*0.14;
+    addPart({ name:'bang', prim:{t:'sphere',sw:16,sh:12,capH:0.42},
+      scale:[0.104, hlen/1.42, 0.048], disp:unitDisp(2.0,0.020,2),
+      pos, basis:[F.tTh, F.tPh, F.n],
+      col:[HAIRC[0]*tone,HAIRC[1]*tone,HAIRC[2]*tone], specK:0.08, specP:13, rim:0.198, aoGain:0.90 });
+  }
+  // 鬓角小卷（耳前）
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'sideburn', prim:{t:'sphere',sw:14,sh:10,capH:0.75},
+      scale:[0.046,0.078,0.056], disp:unitDisp(2.2,0.024,2),
+      pos:[s*0.320,-0.100,0.020], rot:[-0.20,s*0.55,s*0.35],
+      col:HAIRC, specK:0.08, specP:13, rim:0.171, aoGain:0.92 });
+}
+
+/* ==============================================================================
+   §6 肩颈与衣服（body 组）—— 头身比偏大、肩不宽、深色圆领
+   ============================================================================== */
+const CLOTH=[0.205,0.222,0.253], CLOTH2=[0.176,0.190,0.219];
+function buildBody(S){
+  addPart({ name:'neck', group:'body', prim:{t:'sphere',sw:18,sh:12,capH:0.60},
+    scale:[0.176,0.140,0.168], disp:clayDisp(4.5,0.006,2), pos:[0,-0.560,-0.005], rot:[-0.10,0,0],
+    col:SKIN2, specK:0.045, specP:13, rim:0.117 });
+  // 颈根 → 斜方肌：一圈鼓起的过渡
+  addPart({ name:'neckbase', group:'body', prim:{t:'sphere',sw:20,sh:12},
+    scale:[0.240,0.205,0.212], disp:clayDisp(4.0,0.006,2), pos:[0,-0.800,-0.010],
+    col:CLOTH, specK:0.045, specP:13, rim:0.135, aoGain:0.92 });
+  // 肩架：宽而扁，肩线略向下斜
+  addPart({ name:'yoke', group:'body', prim:{t:'sphere',sw:26,sh:14},
+    scale:[0.430,0.235,0.286], disp:clayDisp(3.0,0.008,2), pos:[0,-0.945,-0.010], rot:[-0.06,0,0],
+    col:CLOTH, specK:0.045, specP:13, rim:0.135, aoGain:0.92 });
+  for(let s=-1;s<=1;s+=2)
+    addPart({ name:'shoulder', group:'body', prim:{t:'sphere',sw:20,sh:14},
+      scale:[0.150,0.185,0.152], disp:clayDisp(3.2,0.010,2), pos:[s*0.300,-1.030,-0.010],
+      col:CLOTH, specK:0.045, specP:13, rim:0.135, aoGain:0.92 });
+  // 胸腔：比肩窄，往下收
+  addPart({ name:'chest', group:'body', prim:{t:'sphere',sw:S.body[0],sh:S.body[1]},
+    scale:[0.362,0.460,0.292], disp:clayDisp(2.2,0.012,2), pos:[0,-1.190,0.005], rot:[0.04,0,0],
+    col:CLOTH, specK:0.045, specP:13, rim:0.135, aoGain:0.92 });
+  addPart({ name:'collar', group:'body', prim:{t:'sphere',sw:30,sh:14,capH:0.42},
+    scale:[0.206,0.072,0.198], disp:clayDisp(4.5,0.005,2), pos:[0,-0.700,-0.008], rot:[-0.10,0,0],
+    col:CLOTH2, specK:0.06, specP:13, rim:0.153, aoGain:0.90 });
+  addPart({ name:'plinth', group:'body', prim:{t:'sphere',sw:26,sh:14},
+    scale:[0.412,0.098,0.318], disp:clayDisp(3.0,0.009,2), pos:[0,-1.560,0.008],
+    col:[0.775,0.750,0.706], specK:0.04, specP:13, rim:0.108, aoGain:0.90 });
+}
+
+/* ==============================================================================
+   §7 烘焙 AO：用若干解析球体遮挡体近似自遮蔽（下巴对颈、眼窝、领口、地面…）
+   ============================================================================== */
+const OCCLUDERS=[
+  { c:[0, 0.08,-0.04], r:0.42, k:0.42 },     // 颅骨+头发大团块
+  { c:[0,-0.16, 0.02], r:0.30, k:0.34 },     // 面部块
+  { c:[-0.163,0.05,0.27], r:0.090, k:0.38 }, // 眉/眼窝
+  { c:[ 0.163,0.05,0.27], r:0.090, k:0.38 },
+  { c:[0,-0.150,0.330], r:0.072, k:0.50 },   // 鼻下
+  { c:[0,-0.238,0.268], r:0.062, k:0.34 },   // 唇下
+  { c:[0,-0.400,0.230], r:0.070, k:0.26 },   // 颏下
+  { c:[0,-1.16, 0.00], r:0.46, k:0.44 },     // 胸腔
+  { c:[0,-0.82, 0.00], r:0.30, k:0.36 },     // 颈根/领口
+  { c:[0,-1.63, 0.00], r:0.48, k:0.30 }      // 地面
+];
+function bakeAO(){
+  for(let vi=0; vi<VP.length/3; vi++){
+    const px=VP[vi*3], py=VP[vi*3+1], pz=VP[vi*3+2];
+    const nx=VN[vi*3], ny=VN[vi*3+1], nz=VN[vi*3+2];
+    let occ=0;
+    for(let oi=0;oi<OCCLUDERS.length;oi++){
+      const o=OCCLUDERS[oi];
+      const dx=o.c[0]-px, dy=o.c[1]-py, dz=o.c[2]-pz;
+      let d=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-4;
+      const cosT=(dx*nx+dy*ny+dz*nz)/d;
+      if(cosT<=0) continue;
+      const dd=Math.sqrt(d*d + o.r*o.r*0.49);   // 平滑近似 max(d, 0.7r)，避免硬边
+      occ += o.k*(o.r*o.r)/(dd*dd)*cosT;
+    }
+    VA[vi]=clamp(VA[vi]*(1-Math.min(occ,0.52)), 0.55, 1);
+  }
+}
+
+/* ==============================================================================
+   §8 WebGL
+   ============================================================================== */
+const canvas=document.getElementById('c');
+const gl=canvas.getContext('webgl',{alpha:false,antialias:true,depth:true,powerPreference:'high-performance'});
+function bail(){
+  document.body.insertAdjacentHTML('beforeend','<div class="fallback"></div>');
+  if(canvas.parentNode) canvas.remove();
+}
+if(!gl){ bail(); return; }
+
+const VC=`attribute vec3 aPos; attribute vec3 aNrm; attribute float aAo;
+uniform mat4 uVP,uM; uniform mat3 uNM;
+varying vec3 vN,vP; varying float vAo;
+void main(){ vec4 wp=uM*vec4(aPos,1.0); vP=wp.xyz; vAo=aAo; vN=uNM*aNrm; gl_Position=uVP*wp; }`;
+const FC=`precision highp float;
+varying vec3 vN,vP; varying float vAo;
+uniform vec3 uAlbedo,uCam; uniform float uSpecK,uSpecP,uRim,uEmis,uAoGain;
+void main(){
+  vec3 n=normalize(vN);
+  if(!gl_FrontFacing) n=-n;                     // 双面渲染：背面翻法线
+  vec3 v=normalize(uCam-vP);
+  float ao=clamp(vAo*uAoGain,0.0,1.0);
+  float ndv=max(dot(n,v),0.0);
+
+  /* ① 左上前方：暖白主光，强度最高、衰减最慢 */
+  vec3 L1=normalize(vec3(-0.50,0.72,0.60));
+  vec3 C1=vec3(1.000,0.962,0.908);
+  float ndl=dot(n,L1);
+  float wrap=clamp((ndl+0.28)/1.28,0.0,1.0);     // 包裹式半兰伯特
+  float soft=wrap*wrap*(3.0-2.0*wrap);           // 再软化 → 很宽的明暗交界
+  float lit=mix(max(ndl,0.0),soft,0.74);
+  float onr=max(ndl,0.0)*(1.0+0.30*max(0.0,dot(L1,v)-ndl*ndv));  // 简化 Oren-Nayar 掠射回弹
+  lit=mix(lit,onr,0.30);
+
+  /* ② 右后方：冷色轮廓补光 */
+  vec3 L2=normalize(vec3(0.76,0.22,-0.60));
+  vec3 C2=vec3(0.60,0.71,0.96);
+  float fill=pow(clamp(0.5*dot(n,L2)+0.5,0.0,1.0),1.5);
+
+  /* ③ 极弱环境光：上暖下冷的半球 */
+  vec3 amb=mix(vec3(0.46,0.45,0.45),vec3(0.68,0.67,0.64),n.y*0.5+0.5);
+
+  vec3 col=uAlbedo*(C1*lit*0.88*ao + C2*fill*0.30*ao + amb*0.26*(0.55+0.45*ao));
+
+  /* 高光：宽而淡，绝不能出现镜面点 */
+  vec3 h=normalize(L1+v);
+  col += C1*pow(max(dot(n,h),0.0),uSpecP)*uSpecK*ao;
+
+  /* 边缘微光：让剪影从浅背景里浮起来 */
+  float rim=pow(1.0-ndv,3.5)*uRim;
+  col += vec3(1.0,0.99,0.96)*rim*0.55 + C2*rim*0.45;
+
+  col=mix(col,uAlbedo,uEmis);                   // 眼睛高光点用自发光近似
+  gl_FragColor=vec4(col,1.0);
+}`;
+const VB=`attribute vec2 aXY; varying vec2 vXY; void main(){ vXY=aXY; gl_Position=vec4(aXY,0.999,1.0); }`;
+const FB=`precision mediump float; varying vec2 vXY;
+void main(){
+  float y=vXY.y*0.5+0.5;
+  vec3 c=mix(vec3(0.9255,0.9176,0.8863),vec3(0.9569,0.9529,0.9255),smoothstep(0.0,1.0,y));
+  float r=length((vXY-vec2(0.0,0.10))*vec2(1.0,0.78));
+  c-=vec3(0.018,0.019,0.022)*smoothstep(0.45,1.25,r);
+  gl_FragColor=vec4(c,1.0);
+}`;
+const VSH=`attribute vec3 aPos; attribute float aR; uniform mat4 uVP,uM; varying float vR;
+void main(){ vR=aR; gl_Position=uVP*uM*vec4(aPos,1.0); }`;
+const FSH=`precision mediump float; varying float vR; uniform float uAlpha; uniform vec3 uCol;
+void main(){ gl_FragColor=vec4(uCol, pow(clamp(1.0-vR,0.0,1.0),2.2)*uAlpha); }`;
+
+function sh(t,src){ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function prog(vs,fs){ const p=gl.createProgram(); gl.attachShader(p,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+let clayP,bgP,shP;
+try{ clayP=prog(VC,FC); bgP=prog(VB,FB); shP=prog(VSH,FSH); }
+catch(e){ window.__clayErr=String(e); bail(); return; }
+
+/* ---- 先造形、再烘 AO、最后上传（顺序不能变） ---- */
+const isMobile=Math.min(screen.width,screen.height)<700 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const t0=performance.now();
+if(isMobile){
+  buildHead({head:[22,16],hair:[26,18],lobe:[12,9],eye:[14,10],cap:[14,6],body:[18,12]});
+  buildBody({body:[18,12]});
+}else{
+  buildHead({head:[36,26],hair:[42,30],lobe:[18,12],eye:[22,14],cap:[20,8],body:[26,16]});
+  buildBody({body:[26,16]});
+}
+const buildMs=performance.now()-t0;
+bakeAO();
+
+// 顶点数据上传
+const nv=VP.length/3;
+const INTER=new Float32Array(nv*7);
+for(let i=0;i<nv;i++){
+  INTER[i*7]=VP[i*3]; INTER[i*7+1]=VP[i*3+1]; INTER[i*7+2]=VP[i*3+2];
+  INTER[i*7+3]=VN[i*3]; INTER[i*7+4]=VN[i*3+1]; INTER[i*7+5]=VN[i*3+2];
+  INTER[i*7+6]=VA[i];
+}
+const vbo=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,INTER,gl.STATIC_DRAW);
+const ibo=gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(VI),gl.STATIC_DRAW);
+const STRIDE=28;
+const aPos=gl.getAttribLocation(clayP,'aPos'), aNrm=gl.getAttribLocation(clayP,'aNrm'), aAo=gl.getAttribLocation(clayP,'aAo');
+const U={}; ['uVP','uM','uNM','uCam','uAlbedo','uSpecK','uSpecP','uRim','uEmis','uAoGain'].forEach(k=>U[k]=gl.getUniformLocation(clayP,k));
+const bgBuf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,bgBuf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, -1,1, 1,1]),gl.STATIC_DRAW);
+const bgXY=gl.getAttribLocation(bgP,'aXY');
+// 接触阴影用的地面圆盘
+const SHD=(function(seg){
+  const pos=[0,0,0], rr=[0];
+  for(let i=0;i<=seg;i++){ const a=i/seg*Math.PI*2; pos.push(Math.cos(a),0,Math.sin(a)); rr.push(1); }
+  const idx=[]; for(let i=0;i<seg;i++) idx.push(0,i+1,i+2);
+  return {pos:new Float32Array(pos), r:new Float32Array(rr), idx:new Uint16Array(idx)};
+})(56);
+const shV=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,shV); gl.bufferData(gl.ARRAY_BUFFER,SHD.pos,gl.STATIC_DRAW);
+const shR=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,shR); gl.bufferData(gl.ARRAY_BUFFER,SHD.r,gl.STATIC_DRAW);
+const shI=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,shI); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,SHD.idx,gl.STATIC_DRAW);
+const shAPos=gl.getAttribLocation(shP,'aPos'), shAR=gl.getAttribLocation(shP,'aR');
+const shUVP=gl.getUniformLocation(shP,'uVP'), shUM=gl.getUniformLocation(shP,'uM'),
+      shUA=gl.getUniformLocation(shP,'uAlpha'), shUC=gl.getUniformLocation(shP,'uCol');
+
+/* -------------------------------------------------------------------------- §9 相机 / 自适应 */
+const FIG={ top:0.78, bottom:-1.65, halfW:0.60 };
+const TARGET=[0,-0.42,0];
+const FOV=33*Math.PI/180;
+let VIEW={w:1,h:1,aspect:1,dist:6,eye:[0,-0.4,6]};
+let proj=m4id(), view=m4id(), VPm=m4id();
+
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=canvas.clientWidth||window.innerWidth, h=canvas.clientHeight||window.innerHeight;
+  const W=Math.max(1,Math.round(w*dpr)), H=Math.max(1,Math.round(h*dpr));
+  if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; }
+  gl.viewport(0,0,W,H);
+  const aspect=w/Math.max(1,h);
+  const needH=(FIG.top-FIG.bottom)*1.05, needW=FIG.halfW*2*1.18;
+  const tv=Math.tan(FOV/2);
+  const dist=Math.max(needH/(2*tv), needW/(2*tv*aspect));   // 按视口比例调距离 → 人物永不变形
+  VIEW={w,h,aspect,dist,eye:[0,TARGET[1]+0.22,dist]};
+  proj=m4persp(FOV,aspect,0.1,60);
+  view=m4lookAt(VIEW.eye,TARGET,[0,1,0]);
+  m4mul(proj,view,VPm);
+}
+
+/* -------------------------------------------------------------------------- §10 交互 + 动画 */
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let tgtYaw=0,tgtPitch=0, yaw=0,pitch=0, eYaw=0,ePitch=0;
+let mouseActive=false, last=performance.now(), boot=performance.now();
+let blinkT=-1, blinkNext=2.0+Math.random()*2.2, blinkA=0;
+const headPivot=[0,-0.40,-0.06];
+const HEAD_SCALE=1.085;
+const headGroup=m4id(), bodyGroup=m4id(), sA=m4id(), sB=m4id(), sC=m4id(), nm3=new Float32Array(9), IDM=m4id();
+// 动态部件（虹膜/瞳孔/眼睑）在绘制时才施加旋转：绕眼球中心的刚体旋转
+for(const E of EYES){
+  E.iris.dyn.H=m4id(); E.pupil.dyn.H=m4id(); E.lid.dyn.H=m4id();
+}
+
+function setPointer(cx,cy){
+  const nx=(cx/(VIEW.w||1))*2-1, ny=(cy/(VIEW.h||1))*2-1;
+  tgtYaw  =clamp(nx,-1.25,1.25)*(22*Math.PI/180);   // 头绕 Y ±22°
+  tgtPitch=clamp(-ny,-1.40,1.40)*(10*Math.PI/180);  // 头绕 X ±10°
+  mouseActive=true;
+}
+function updateBlink(dt){
+  if(blinkT<0){
+    blinkNext-=dt;
+    if(blinkNext>0) return 0;
+    blinkT=0;
+  }
+  blinkT+=dt;
+  if(blinkT<0.090) return smoothstep(0,1,blinkT/0.090);              // 90ms 闭合
+  if(blinkT<0.210) return 1-smoothstep(0,1,(blinkT-0.090)/0.120);    // 120ms 睁开
+  blinkT=-1; blinkNext=(Math.random()<0.22)?0.30:(3+Math.random()*3); // 偶尔连眨两下
+  return 0;
+}
+function render(now){
+  window.__frames=(window.__frames||0)+1;   // 调试用帧计数
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  const t=(now-boot)/1000;
+
+  // 头：帧率无关阻尼 k = 1-exp(-λ·dt)
+  if(!mouseActive){ tgtYaw=0; tgtPitch=0; }
+  const ky=1-Math.exp(-7.5*dt), kp=1-Math.exp(-6.5*dt);
+  yaw  += (tgtYaw-yaw)*ky;
+  pitch+= (tgtPitch-pitch)*kp;
+  // 眼球：更快的独立追随
+  const ke=1-Math.exp(-16*dt), want=mouseActive?1:0;
+  eYaw  += (clamp(tgtYaw*want,-0.18,0.18)-eYaw)*ke;   // 叠加 ±10°，不比头转得更多
+  ePitch+= (clamp(tgtPitch*want,-0.12,0.12)-ePitch)*ke;
+
+  // 呼吸：4.6s 周期，幅度 1.2%
+  const br=Math.sin(t*2*Math.PI/4.6), bs=1+0.012*br;
+  const idle=mouseActive?0:1;
+  const swayY=reduce?0:(0.9*Math.PI/180)*Math.sin(t*0.62)*idle;
+  const swayP=reduce?0:(0.6*Math.PI/180)*Math.sin(t*0.47+1.3)*idle;
+
+  m4trs([0,0,0],pitch+swayP,yaw+swayY,0,sA);
+  const hs=m4id(); hs[0]=hs[5]=hs[10]=HEAD_SCALE;      // 头部整体放大（绕颈根）
+  m4mulN([m4trs(headPivot,0,0,0), hs, sA, m4trs([-headPivot[0],-headPivot[1]+0.008*br,-headPivot[2]],0,0,0)], headGroup);
+  // 呼吸缩放：以胸腔中心为轴做极缓慢的起伏
+  const bm=m4id(); bm[0]=1+0.006*br; bm[5]=bs; bm[10]=1+0.006*br;
+  m4mulN([m4trs([0,-1.10,0],0,0,0), bm, m4trs([0,1.10,0],0,0,0)], bodyGroup);
+
+  blinkA=reduce?0:updateBlink(dt);
+  window.__blink=[+blinkA.toFixed(3),+blinkT.toFixed(3),+dt.toFixed(4),reduce?1:0,+(now%100000).toFixed(1)];   // TEMP
+  for(let i=0;i<EYES.length;i++){
+    const E=EYES[i], pv=E.pivot;
+    const Tp=m4trs(pv,0,0,0), Ti=m4trs([-pv[0],-pv[1],-pv[2]],0,0,0);
+    m4trs([0,0,0],ePitch,eYaw,0,sC);
+    m4mulN([Tp,sC,Ti], E.iris.dyn.H);
+    m4mulN([Tp,sC,Ti], E.pupil.dyn.H);
+    m4trs([0,0,0],blinkA*1.24,0,0,sC);          // 眼睑下压
+    m4mulN([Tp,sC,Ti], E.lid.dyn.H);
+  }
+
+  // ---- 绘制 ----
+  gl.clearColor(0.9373,0.9294,0.9020,1);               // #EFEDE6
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+  gl.useProgram(bgP);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bgBuf);
+  gl.enableVertexAttribArray(bgXY); gl.vertexAttribPointer(bgXY,2,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  // 柔和的接触阴影（两层椭圆渐变，绝不硬边）
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(false);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(shP);
+  gl.uniformMatrix4fv(shUVP,false,VPm);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,shI);
+  gl.bindBuffer(gl.ARRAY_BUFFER,shV); gl.enableVertexAttribArray(shAPos); gl.vertexAttribPointer(shAPos,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,shR); gl.enableVertexAttribArray(shAR); gl.vertexAttribPointer(shAR,1,gl.FLOAT,false,0,0);
+  gl.uniform3f(shUC,0.42,0.40,0.37);
+  let sm=m4id(); sm[12]=0.048; sm[13]=-1.652; sm[14]=-0.05; sm[0]=0.78; sm[10]=0.60;
+  gl.uniformMatrix4fv(shUM,false,sm); gl.uniform1f(shUA,0.36);
+  gl.drawElements(gl.TRIANGLES,SHD.idx.length,gl.UNSIGNED_SHORT,0);
+  sm=m4id(); sm[12]=0.032; sm[13]=-1.649; sm[14]=-0.04; sm[0]=0.44; sm[10]=0.34;
+  gl.uniformMatrix4fv(shUM,false,sm); gl.uniform1f(shUA,0.38);
+  gl.drawElements(gl.TRIANGLES,SHD.idx.length,gl.UNSIGNED_SHORT,0);
+  gl.depthMask(true); gl.disable(gl.BLEND);
+
+  // 人物
+  gl.useProgram(clayP);
+  gl.uniformMatrix4fv(U.uVP,false,VPm);
+  gl.uniform3fv(U.uCam,VIEW.eye);
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,STRIDE,0);
+  gl.enableVertexAttribArray(aNrm); gl.vertexAttribPointer(aNrm,3,gl.FLOAT,false,STRIDE,12);
+  gl.enableVertexAttribArray(aAo);  gl.vertexAttribPointer(aAo,1,gl.FLOAT,false,STRIDE,24);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo);
+  for(let i=0;i<PARTS.length;i++){
+    const p=PARTS[i];
+    const G=p.group==='head'?headGroup:bodyGroup;
+    const M=p.dyn? m4mul(G,p.dyn.H,sA) : m4mul(G,IDM,sA);
+    gl.uniformMatrix4fv(U.uM,false,M);
+    gl.uniformMatrix3fv(U.uNM,false,m3normal(M,nm3));
+    gl.uniform3fv(U.uAlbedo,p.col);
+    gl.uniform1f(U.uSpecK,p.specK); gl.uniform1f(U.uSpecP,p.specP);
+    gl.uniform1f(U.uRim,p.rim);     gl.uniform1f(U.uEmis,p.emis);
+    gl.uniform1f(U.uAoGain,p.aoGain);
+    gl.drawElements(gl.TRIANGLES,p.n,gl.UNSIGNED_SHORT,p.off*2);
+  }
+  window.__r=running;   // TEMP
+  if(running) raf=requestAnimationFrame(render);      // 持续驱动
+}
+let raf=0, running=false;
+function startLoop(){ if(running||reduce) return; running=true; last=performance.now(); raf=requestAnimationFrame(render); }
+function stopLoop(){ if(!running) return; running=false; cancelAnimationFrame(raf); }
+if(!reduce){
+  window.addEventListener('pointermove',e=>setPointer(e.clientX,e.clientY),{passive:true});
+  window.addEventListener('pointerdown',e=>setPointer(e.clientX,e.clientY),{passive:true});
+  window.addEventListener('mouseout',e=>{ if(!e.relatedTarget) mouseActive=false; });   // 鼠标离开窗口 → 缓慢回正
+  window.addEventListener('blur',()=>{ mouseActive=false; });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden) stopLoop(); else startLoop(); });
+}
+
+// 对外小接口（可选）：站点别处可以主动触发一次眨眼，或让头像看向某处
+window.clayBust = {
+  blink: function(){ blinkT=0; blinkNext=99; },
+  look : function(x,y){ setPointer(x,y); },
+  rest : function(){ mouseActive=false; }
+};
+
+/* -------------------------------------------------------------------------- §11 启动 */
+resize();
+if(reduce){
+  render(performance.now());                       // 完全静止：只渲染一帧
+}else{
+  if(typeof ResizeObserver!=='undefined'){ new ResizeObserver(resize).observe(canvas); }
+  window.addEventListener('resize',resize);
+  startLoop();
+}
+window.__clay=JSON.stringify({v:VP.length/3,tri:VI.length/3,parts:PARTS.length,build:Math.round(buildMs)});
+})();
+</script>
+</body>
+</html>

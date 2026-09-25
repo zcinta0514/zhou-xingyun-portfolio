@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 A · 章制编辑体 + 一个峰值</title>
+<style>
+@import url("../assets/fonts/lxgw-wenkai-tc/font.css");
+@font-face{font-family:"PX Serif";src:url("../assets/fonts/noto-serif-sc-600-zhou-xingyun.woff2") format("woff2");font-display:swap;unicode-range:U+5468,U+6027,U+8FD0;}
+:root{
+  color-scheme:dark;
+  --canvas:#0A0F0C; --surface:#111813; --paper:#EFEDE6; --paper-ink:#14150F;
+  --ink:#F2F6F3; --ink-soft:#A6B8AC; --ink-dim:#7E9187;
+  --accent:#92EFAB; --edge:rgba(255,255,255,.07);
+  --ease:cubic-bezier(.23,1,.32,1);
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;--sp-7:48px;--sp-8:64px;--sp-9:96px;--sp-10:144px;
+  --r-1:6px;--r-2:10px;--r-3:16px;
+  --track-tight:-.035em; --track-tight2:-.02em; --track-normal:.005em;
+  font-family:"Portfolio LXGW WenKai","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:16px; line-height:1.7;
+  background:var(--canvas); color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:3px}
+::selection{background:var(--accent);color:#0A0F0C}
+
+/* grain: the difference between "a dark page" and "a lit room" */
+.grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+.wrap{width:min(1200px,100% - 2*clamp(24px,5vw,72px));margin-inline:auto}
+.progress{position:fixed;top:0;left:0;height:2px;background:var(--accent);z-index:70;width:0;transition:width .1s linear}
+
+/* ── HERO ───────────────────────────────────────────── */
+.hero{position:relative;min-height:100svh;display:grid;align-items:center;overflow:hidden;
+  background:
+    radial-gradient(680px circle at 78% 22%, rgba(146,239,171,.09), transparent 62%),
+    radial-gradient(520px circle at 4% 92%, rgba(146,239,171,.05), transparent 60%),
+    var(--canvas);}
+.hero-grid{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  gap:clamp(24px,5vw,72px);align-items:center;padding-block:clamp(80px,12vh,140px)}
+.name{font-family:"PX Serif","Songti SC",serif;font-size:clamp(56px,7.4vw,104px);line-height:.98;
+  letter-spacing:.01em;margin:0}
+.name em{font-style:normal;color:var(--accent);opacity:.9}
+.tagline{margin:var(--sp-5) 0 0;font-size:clamp(17px,1.5vw,21px);line-height:1.6;color:var(--ink);
+  max-width:27ch;text-wrap:balance}
+.sub{margin:var(--sp-4) 0 0;color:var(--ink-soft);font-size:15.5px;line-height:1.75;max-width:38ch;letter-spacing:var(--track-normal)}
+
+/* proof strip: the strongest evidence, on the first screen */
+.proof{display:flex;flex-wrap:wrap;gap:var(--sp-6) var(--sp-8);margin-top:clamp(32px,5vh,56px);
+  padding-top:var(--sp-5);border-top:1px solid var(--edge)}
+.proof div{min-width:88px}
+.proof b{display:block;font-size:clamp(24px,2.4vw,32px);font-weight:600;letter-spacing:var(--track-tight2);
+  font-variant-numeric:tabular-nums;line-height:1.1;color:var(--ink)}
+.proof span{display:block;margin-top:var(--sp-1);font-size:12.5px;color:var(--ink-dim);letter-spacing:.02em}
+.actions{display:flex;align-items:center;gap:var(--sp-6);margin-top:var(--sp-7);flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:var(--sp-3);padding:13px 26px;border-radius:99px;
+  border:1px solid rgba(146,239,171,.38);background:rgba(146,239,171,.09);color:var(--ink);
+  font-size:15px;font-weight:500;transition:transform .16s var(--ease),background .16s,border-color .16s}
+.btn:hover{background:rgba(146,239,171,.17);border-color:var(--accent)}
+.btn:active{transform:scale(.97)}
+.quiet{font-size:14.5px;color:var(--ink-soft);border-bottom:1px solid rgba(166,184,172,.35);padding-bottom:2px;
+  transition:color .16s,border-color .16s}
+.quiet:hover{color:var(--ink);border-color:var(--accent)}
+
+.portrait{position:relative;justify-self:center;width:100%;max-width:420px;aspect-ratio:4/5;
+  border-radius:var(--r-3);overflow:hidden;
+  box-shadow:0 32px 72px -24px rgba(0,0,0,.85), inset 0 1px 0 var(--edge)}
+.portrait img{width:100%;height:100%;object-fit:cover;object-position:50% 22%;filter:saturate(.86) contrast(1.05)}
+.portrait::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 45%,rgba(10,15,12,.62));}
+
+/* ── SILENCE ── an authored empty band before the peak */
+.silence{height:min(52vh,420px);display:grid;place-items:center;background:var(--canvas)}
+.silence p{margin:0;color:var(--ink-dim);font-size:14px;letter-spacing:.01em;opacity:0;
+  transition:opacity 1.1s var(--ease) .15s}
+.silence.in p{opacity:1}
+
+/* ── PEAK ── hard cut from dark ground to bone
+   暗坑：clip-path 会让元素自身的 IntersectionObserver 判定为 0 面积，
+   被裁切的元素永远等不到自己的回调。所以用一个不裁切的哨兵元素触发。 */
+.peak-trigger{position:relative}
+.peak{position:relative;background:var(--paper);color:var(--paper-ink);overflow:hidden;
+  clip-path:inset(100% 0 0 0);transition:clip-path 1.15s var(--ease)}
+.peak-trigger.in .peak{clip-path:inset(0 0 0 0)}
+.peak-inner{padding-block:clamp(80px,13vh,160px)}
+.peak .kicker{font-size:12.5px;letter-spacing:.14em;color:#6C6A5E;text-transform:uppercase}
+.peak h2{margin:var(--sp-6) 0 0;font-size:clamp(26px,3vw,40px);line-height:1.2;letter-spacing:var(--track-tight2);
+  font-weight:550;max-width:20ch}
+.big{font-family:"PX Serif",Georgia,serif;font-size:clamp(96px,15.5vw,236px);line-height:.86;
+  margin:var(--sp-5) 0 0;letter-spacing:-.015em;font-variant-numeric:tabular-nums;color:#14150F}
+.big sup{font-size:.26em;vertical-align:super;font-family:inherit;letter-spacing:0;margin-left:.06em;color:#4B4A42}
+.peak-meta{display:flex;flex-wrap:wrap;gap:var(--sp-3) var(--sp-6);margin-top:var(--sp-6);
+  color:#5A584E;font-size:13.5px}
+.peak-media{margin-top:clamp(32px,6vh,64px);position:relative;border-radius:var(--r-2);overflow:hidden;
+  box-shadow:0 40px 80px -32px rgba(20,21,15,.42)}
+.peak-media img{width:100%;aspect-ratio:16/9;object-fit:cover;
+  clip-path:inset(0 0 100% 0);transform:scale(1.04);
+  transition:clip-path 1.25s var(--ease) .18s, transform 1.6s var(--ease) .18s}
+.peak-trigger.in .peak-media img{clip-path:inset(0 0 0 0);transform:scale(1)}
+.peak-note{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-6);
+  margin-top:var(--sp-7);padding-top:var(--sp-5);border-top:1px solid rgba(20,21,15,.16)}
+.peak-note p{margin:0;font-size:14.5px;line-height:1.75;color:#43423A}
+.peak-note b{display:block;margin-bottom:var(--sp-2);font-size:12.5px;letter-spacing:.1em;color:#75736A;text-transform:uppercase;font-weight:500}
+
+/* ── EXIT ── the end must resolve */
+.exit{background:var(--canvas);padding-block:clamp(80px,14vh,150px)}
+.exit h2{margin:0;font-size:clamp(26px,3.4vw,44px);line-height:1.2;letter-spacing:var(--track-tight2);font-weight:550;max-width:24ch}
+.exit p{margin:var(--sp-5) 0 0;color:var(--ink-soft);font-size:15.5px;max-width:44ch;line-height:1.8}
+.exit-row{display:flex;flex-wrap:wrap;gap:var(--sp-7);margin-top:var(--sp-8);padding-top:var(--sp-6);
+  border-top:1px solid var(--edge)}
+.exit-row a b{display:block;font-size:12px;letter-spacing:.1em;color:var(--ink-dim);text-transform:uppercase;font-weight:500}
+.exit-row a span{display:block;margin-top:var(--sp-2);font-size:clamp(17px,1.7vw,22px);letter-spacing:var(--track-tight2)}
+
+/* reveal on scroll */
+.reveal>*{opacity:0;transform:translateY(18px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in>*{opacity:1;transform:none}
+.reveal.in>*:nth-child(2){transition-delay:.07s}
+.reveal.in>*:nth-child(3){transition-delay:.14s}
+.reveal.in>*:nth-child(4){transition-delay:.21s}
+
+/* headings get a mask wipe: the edge, not the opacity, is what reads as premium */
+.wipe{overflow:hidden;display:block}
+.wipe>span{display:block;transform:translateY(104%);transition:transform .95s var(--ease)}
+.wipe.in>span{transform:none}
+
+.flash{position:absolute;inset:0;background:var(--paper);pointer-events:none;opacity:0}
+
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:var(--sp-7)}
+  .portrait{order:-1;max-width:260px;justify-self:start}
+  .silence{height:34vh}
+}
+@media (prefers-reduced-motion:reduce){
+  /* fewer and gentler, not zero: keep what carries comprehension */
+  .peak{clip-path:none!important;transition:none}
+  .peak-media img{clip-path:none!important;transform:none!important;transition:none}
+  .wipe>span{transform:none!important;transition:none}
+  .reveal>*{opacity:1!important;transform:none!important;transition:none}
+  .silence p{opacity:1;transition:none}
+}
+html.flat .peak{clip-path:none!important}
+html.flat .peak-trigger.in .peak{clip-path:none!important}
+html.flat .peak-media img{clip-path:none!important;transform:none!important}
+html.flat .wipe>span{transform:none!important}
+html.flat .reveal>*{opacity:1!important;transform:none!important}
+html.flat .silence p{opacity:1!important}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="progress" id="bar" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1 class="name">周性运 <em>Lucky</em></h1>
+      <p class="tagline">内容策划与海外社媒运营</p>
+      <p class="sub">本科数学，硕士应用经济学，2027 届。在网易、虎扑、盛力世家做过海外社媒内容、社区运营和赛事现场。</p>
+
+      <div class="proof" id="proof">
+        <div><b data-count="1.6" data-suffix="M">0</b><span>单条视频播放</span></div>
+        <div><b data-count="571226" data-group="1">0</b><span>单篇文章阅读</span></div>
+        <div><b data-count="300" data-suffix="+">0</b><span>小游戏玩家</span></div>
+        <div><b data-count="19.6" data-suffix="K">0</b><span>账号粉丝</span></div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="#peak">看作品</a>
+        <a class="quiet" href="../assets/resume-zhou-xingyun.pdf">下载简历 PDF</a>
+      </div>
+    </div>
+    <figure class="portrait"><img src="../assets/hero_profile_soft-v1.png" alt="周性运"></figure>
+  </div>
+</header>
+
+<!-- 静默：峰值前必须有一段什么都没发生的滚动 -->
+<section class="silence" id="silence"><p>从这里往下，是这一页唯一一件被完整讲完的事。</p></section>
+
+<!-- 峰值：深色硬切骨白。外层 .peak-trigger 只负责触发，自身不裁切。 -->
+<div class="peak-trigger" id="peak">
+<section class="peak">
+  <div class="wrap peak-inner">
+    <p class="kicker">TikTok · 篮球短视频运营</p>
+    <h2 class="wipe" data-wipe><span>三分王与街球传奇 1v1</span></h2>
+    <p class="big" data-count-big="1.6" data-suffix="M">0<sup>播放</sup></p>
+    <div class="peak-meta">
+      <span>点赞 103.7K</span><span>发布账号粉丝 19.6K</span><span>数据核实 2026-09-09</span>
+    </div>
+    <figure class="peak-media"><img src="../assets/works_tt5_03.png" alt="三分王与街球传奇 1v1 视频画面"></figure>
+    <div class="peak-note reveal">
+      <p><b>我做的</b>跟进总决赛热点，定选题与创意切入点，写制作需求，筛 AIGC 画面并审成片，最后定标题和发布节奏。</p>
+      <p><b>为什么它能跑起来</b>决赛周是全年讨论密度最高的窗口，球员对抗的现实话题可以直接映射到游戏角色的对战关系上。</p>
+    </div>
+  </div>
+</section>
+</div>
+
+<section class="exit">
+  <div class="wrap">
+    <h2 class="wipe" data-wipe><span>剩下的事，换个地方讲</span></h2>
+    <p>Instagram 上的海报与竞猜企划、日韩上线前的教学内容协作、虎扑的两篇热点文章，还有我用 AI 做的羽毛球小游戏。都在完整版里。</p>
+    <div class="exit-row">
+      <a href="mailto:2228144556@qq.com"><b>邮箱</b><span>2228144556@qq.com</span></a>
+      <a href="https://github.com/zcinta0514" target="_blank" rel="noopener"><b>GitHub</b><span>@zcinta0514</span></a>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const flat = location.search.includes('flat') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (flat) document.documentElement.classList.add('flat');
+
+  // scroll progress
+  const bar = document.getElementById('bar');
+  let q = false;
+  const onScroll = () => {
+    if (q) return; q = true;
+    requestAnimationFrame(() => {
+      q = false;
+      const max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%';
+    });
+  };
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // reveal triggers
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('in');
+      io.unobserve(e.target);
+    });
+  }, { rootMargin: '0px 0px -14% 0px', threshold: .08 });
+  document.querySelectorAll('.reveal, [data-wipe], .silence, .peak-trigger, #proof').forEach(el => io.observe(el));
+
+  // counting: the peak's number, and the hero proof strip
+  function count(el, to, opts) {
+    const dur = opts.dur || 1500;
+    const t0 = performance.now();
+    const dec = opts.dec || 0;
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = to * eased;
+      el.textContent = dec ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US');
+      if (p < 1) requestAnimationFrame(tick);
+      else {
+        el.textContent = dec ? to.toFixed(dec) : Math.round(to).toLocaleString('en-US');
+        if (opts.sup) el.appendChild(opts.sup);
+      }
+    };
+    if (flat) {
+      el.textContent = dec ? to.toFixed(dec) : Math.round(to).toLocaleString('en-US');
+      if (opts.sup) el.appendChild(opts.sup);
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  const bigEl = document.querySelector('[data-count-big]');
+  const sup = bigEl.querySelector('sup');
+  const bigIo = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    count(bigEl, 1.6, { dec: 1, dur: 1700, sup });
+    bigIo.disconnect();
+  }), { threshold: .5 });
+  bigIo.observe(bigEl);
+  if (flat) { bigEl.textContent = '1.6'; bigEl.appendChild(sup); }
+
+  document.querySelectorAll('#proof [data-count]').forEach(el => {
+    const to = parseFloat(el.dataset.count);
+    const dec = el.dataset.count.includes('.') ? 1 : 0;
+    count(el, to, { dec, dur: 1200 });
+    const suffix = el.dataset.suffix;
+    if (suffix) {
+      const original = el;
+      const obs = new MutationObserver(() => {});
+      obs.observe(el, { childList: true });
+    }
+  });
+  // append suffixes once counting settles
+  document.querySelectorAll('#proof [data-count]').forEach(el => {
+    const s = el.dataset.suffix; if (!s) return;
+    setTimeout(() => { if (!el.textContent.endsWith(s)) el.textContent += s; }, flat ? 0 : 1250);
+  });
+})();
+</script>
+</body>
+</html>

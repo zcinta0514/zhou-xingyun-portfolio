@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="周性运个人作品集 · 内容策划与海外社媒运营。TikTok 与 Instagram 内容运营、虎扑热点文章、AI 浏览器小游戏。">
+<title>周性运 · 个人作品集</title>
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- 一层 canvas：整页共用同一个世界。指针位置与滚动速度共同驱动它 -->
+<div class="field" id="field-host" aria-hidden="true">
+  <canvas id="field"></canvas>
+  <div class="field-shade" id="field-shade"></div>
+</div>
+
+<header class="top">
+  <a class="top-name" href="#home" id="top-name"></a>
+  <nav class="top-nav" id="top-nav" aria-label="页面章节"></nav>
+</header>
+
+<main id="main" tabindex="-1">
+  <!-- 沉浸区：首屏 → 打钉论证 → 峰值。粒子场只在这段时间里活着 -->
+  <div class="world" id="world">
+    <section id="home" class="hero"></section>
+    <section id="act" class="act"></section>
+    <section id="peak" class="peak"></section>
+  </div>
+
+  <section id="background" class="journey"></section>
+  <section id="abilities" class="abilities"></section>
+  <section id="works" class="works"></section>
+  <section id="practice" class="practice"></section>
+  <section id="contact" class="contact"></section>
+</main>
+
+<script src="../shared/content.js"></script>
+<script src="../shared/motion.js"></script>
+<script src="main.js" defer></script>
+</body>
+</html>

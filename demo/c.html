@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 C · 证据仪表盘（把作品当数据读）</title>
+<style>
+@import url("../assets/fonts/lxgw-wenkai-tc/font.css");
+@font-face{font-family:"PX Serif";src:url("../assets/fonts/noto-serif-sc-600-zhou-xingyun.woff2") format("woff2");font-display:swap;unicode-range:U+5468,U+6027,U+8FD0;}
+:root{
+  color-scheme:dark;
+  --canvas:#0A100D; --surface:#111A15; --ink:#F1F6F3; --ink-soft:#A9BCB0; --ink-dim:#7C8F85;
+  --accent:#92EFAB; --accent-dim:rgba(146,239,171,.16); --line:rgba(255,255,255,.08);
+  --ease:cubic-bezier(.23,1,.32,1);
+  font-family:"Portfolio LXGW WenKai","PingFang SC",system-ui,sans-serif;font-size:16px;line-height:1.7;
+  background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink)}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+::selection{background:var(--accent);color:#0A100D}
+.grain{position:fixed;inset:0;z-index:50;pointer-events:none;opacity:.04;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.wrap{width:min(1180px,100% - 2*clamp(20px,5vw,68px));margin-inline:auto}
+
+/* ── HEAD ── */
+.head{padding-block:clamp(56px,9vh,110px) clamp(24px,4vh,44px);display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,.62fr);gap:clamp(24px,5vw,64px);align-items:end}
+h1{margin:0;font-family:"PX Serif","Songti SC",serif;font-size:clamp(40px,5.6vw,76px);line-height:1.02;letter-spacing:.005em}
+.head p{margin:0;color:var(--ink-soft);font-size:15.5px;line-height:1.8}
+.head p+p{margin-top:14px}
+.head .lead b{color:var(--ink);font-weight:500}
+
+/* ── CHART CARD ── */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 40px 90px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap;
+  padding:clamp(20px,3vw,30px) clamp(20px,3vw,34px) 0}
+.card-head h2{margin:0;font-size:19px;font-weight:550;letter-spacing:-.01em}
+.card-head .note{font-size:12.5px;color:var(--ink-dim)}
+.chart{position:relative;padding:clamp(12px,2vw,22px) clamp(8px,1.6vw,18px) clamp(16px,2.5vw,26px)}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.grid line{stroke:rgba(255,255,255,.055);stroke-width:1}
+.grid text{fill:#6F8279;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.axis-title{fill:#6F8279;font-size:11.5px}
+.pt{cursor:pointer;transition:opacity .25s var(--ease)}
+.pt circle.hit{fill:transparent}
+.pt circle.dot{fill:var(--accent);fill-opacity:.42;stroke:var(--accent);stroke-width:1.3;
+  transition:r .3s var(--ease),fill-opacity .3s var(--ease)}
+.pt text{fill:#C3D4C9;font-size:11.5px;pointer-events:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.pt:hover circle.dot,.pt.on circle.dot{fill-opacity:.9;stroke-width:2}
+.pt.hero circle.dot{fill-opacity:.85}
+.pt.hero text{fill:#F1F6F3;font-size:12.5px}
+.chart.dimmed .pt:not(.on){opacity:.32}
+.band{fill:var(--accent);fill-opacity:.05}
+.band-label{fill:#7C8F85;font-size:10.5px;letter-spacing:.08em}
+
+/* ── DETAIL PANEL ── */
+.detail{display:grid;grid-template-columns:104px minmax(0,1fr);gap:18px;align-items:start;
+  padding:clamp(18px,2.4vw,26px) clamp(20px,3vw,34px);border-top:1px solid var(--line);min-height:150px}
+.detail img{width:104px;aspect-ratio:9/16;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.detail h3{margin:0 0 6px;font-size:16.5px;font-weight:550;letter-spacing:-.01em}
+.detail .cat{margin:0 0 12px;font-size:12.5px;color:var(--accent);letter-spacing:.04em}
+.detail dl{margin:0;display:flex;gap:26px;flex-wrap:wrap}
+.detail dt{font-size:11.5px;color:var(--ink-dim);letter-spacing:.06em}
+.detail dd{margin:3px 0 0;font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.detail .why{margin:14px 0 0;font-size:13.5px;color:var(--ink-soft);line-height:1.75;max-width:60ch}
+
+/* ── READ ── */
+.read{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:clamp(20px,3vw,44px);
+  padding:clamp(28px,4vw,48px) 0 0}
+.read article h3{margin:0 0 10px;font-size:12.5px;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;font-weight:500}
+.read article p{margin:0;font-size:14.5px;line-height:1.8;color:var(--ink-soft);max-width:38ch}
+.read article b{color:var(--ink);font-weight:550}
+
+/* ── SECONDARY: articles + game ── */
+.sub{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:clamp(20px,3.4vw,44px);
+  margin-top:clamp(44px,7vh,88px)}
+.sub .card{padding:clamp(20px,3vw,32px)}
+.sub h2{margin:0 0 clamp(18px,2.5vw,26px);font-size:17px;font-weight:550}
+.bar{margin-bottom:22px}
+.bar .row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:9px}
+.bar .t{font-size:14px;color:#DAE6DE;max-width:30ch;line-height:1.5}
+.bar .v{font-size:15px;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.bar .track{height:9px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
+.bar .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,rgba(146,239,171,.5),var(--accent));
+  width:0;transition:width 1.15s var(--ease)}
+.bar small{display:block;margin-top:7px;font-size:12px;color:var(--ink-dim)}
+.stat{padding:clamp(20px,3vw,32px);display:flex;flex-direction:column;justify-content:space-between;gap:22px}
+.stat .n{font-family:"PX Serif",Georgia,serif;font-size:clamp(52px,6vw,78px);line-height:.92;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.stat .n span{font-size:.3em;color:var(--ink-dim);margin-left:.15em;letter-spacing:0}
+.stat p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.75}
+.stat a{align-self:flex-start;font-size:14px;border-bottom:1px solid rgba(169,188,176,.4);padding-bottom:2px;
+  transition:color .2s var(--ease),border-color .2s var(--ease)}
+.stat a:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ── CLOSE ── */
+.close{margin-top:clamp(48px,8vh,96px);padding:clamp(36px,6vh,72px) 0 clamp(56px,9vh,110px);
+  border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:32px;align-items:end}
+.close h2{margin:0;font-size:clamp(24px,3.1vw,40px);line-height:1.24;letter-spacing:-.025em;max-width:22ch}
+.close .links{display:flex;gap:clamp(20px,3vw,40px);flex-wrap:wrap;font-size:15.5px}
+.close .links a{border-bottom:1px solid rgba(169,188,176,.4);padding-bottom:2px}
+.close .links a:hover{color:var(--accent);border-color:var(--accent)}
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .head{grid-template-columns:1fr;align-items:start}
+  .sub{grid-template-columns:1fr}
+  .close{grid-template-columns:1fr}
+  .detail{grid-template-columns:1fr}
+  .detail img{width:100%;aspect-ratio:16/9}
+}
+@media (prefers-reduced-motion:reduce){
+  .bar .fill{transition:none}
+  .reveal{opacity:1;transform:none;transition:none}
+  .pt circle.dot{transition:none}
+}
+html.flat .reveal{opacity:1!important;transform:none!important}
+html.flat .bar .fill{transition:none!important}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="wrap">
+
+  <header class="head">
+    <div>
+      <h1>周性运</h1>
+    </div>
+    <div class="lead reveal">
+      <p><b>内容策划与海外社媒运营。</b>本科数学，硕士应用经济学，2027 届。</p>
+      <p>这一页不讲感受，只放我做过的内容，以及它们跑出来的结果。数据都标了核实日期。</p>
+    </div>
+  </header>
+
+  <section class="card reveal" aria-labelledby="chart-title">
+    <div class="card-head">
+      <h2 id="chart-title">TikTok 篮球短视频：播放量 vs 互动率</h2>
+      <span class="note">6 条作品 · 公开累计数据 · 2026-09-09 核实</span>
+    </div>
+    <div class="chart" id="chart"></div>
+    <div class="detail" id="detail"></div>
+  </section>
+
+  <div class="read reveal">
+    <article>
+      <h3>一个能拿去做决策的结论</h3>
+      <p>六条里互动率最低的，是唯一的纯资讯选题（1.6%）。<b>1v1 系列的两条（6.5% 与 4.7%）明显高于均值</b>。对抗关系比单纯的信息量更容易让人动手点赞。</p>
+    </article>
+    <article>
+      <h3>所以我怎么选题</h3>
+      <p>赛程表决定生死。决赛周、自由市场开市、球员冲突都是天然窗口；窗口里<b>选有对立关系的题材</b>，而不是选信息量最大的题材。</p>
+    </article>
+    <article>
+      <h3>但是不能推得太远</h3>
+      <p>播放量与互动率并不呈线性：Bronny 那条播放 174.7K，互动率只有 2.4%，低于均值；同样是冲突题材的 Herro 那条也低于均值。六条样本很小，<b>题材不是唯一变量</b>。</p>
+    </article>
+  </div>
+
+  <div class="sub">
+    <section class="card reveal" aria-labelledby="hupu-title">
+      <h2 id="hupu-title">虎扑热点文章：阅读与讨论</h2>
+      <div class="bar" data-bar="571226">
+        <div class="row"><span class="t">真相探求：身高 187cm 的李昊，真的因为太矮被马竞淘汰？</span><span class="v">571,226</span></div>
+        <div class="track"><div class="fill"></div></div>
+        <small>521 条回复 · 热点辨析 · bbs.hupu.com</small>
+      </div>
+      <div class="bar" data-bar="267726">
+        <div class="row"><span class="t">0-4 背后的鸿沟：中国足球和日本足球的差距在哪里？</span><span class="v">267,726</span></div>
+        <div class="track"><div class="fill"></div></div>
+        <small>746 条回复 · 赛后议题 · bbs.hupu.com</small>
+      </div>
+      <p style="margin:22px 0 0;font-size:13px;color:var(--ink-dim)">阅读与回复数据 · 2026-08-12 作品集记录</p>
+    </section>
+
+    <section class="card stat reveal" aria-labelledby="rally-title">
+      <div>
+        <h2 id="rally-title" style="margin-bottom:18px">开拍 RALLY · 羽毛球小游戏</h2>
+        <p class="n" data-count="300" data-suffix="+">0</p>
+      </div>
+      <div>
+        <p>上线近一周的累计玩家。用 AI 工具辅助完成，支持人机练习与双手机实时 1v1。</p>
+        <p style="margin-top:10px;font-size:12px;color:var(--ink-dim)">本人提供 · 2026-09-14</p>
+      </div>
+      <a href="https://zcinta0514.github.io/rally-badminton/" target="_blank" rel="noopener">去试玩</a>
+    </section>
+  </div>
+
+  <div class="close">
+    <h2>想聊内容、社媒或者岗位机会，都可以直接找我。</h2>
+    <div class="links">
+      <a href="mailto:2228144556@qq.com">2228144556@qq.com</a>
+      <a href="https://github.com/zcinta0514" target="_blank" rel="noopener">GitHub @zcinta0514</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const flat = location.search.includes('flat') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (flat) document.documentElement.classList.add('flat');
+
+  const WORKS = [
+    { id:'TT4', title:'Herro 与 Bam：从队友到对手', cat:'冲突热点', views:4221,    likes:114,    src:'../assets/library/TT4-cover.png',
+      why:'播放最低，但冲突类题材的互动率并不差。这类内容的问题在分发规模，不在内容质量。' },
+    { id:'TT3', title:'Warriors 球员阵容话题',     cat:'自由市场热点', views:11200,  likes:177,    src:'../assets/library/TT3-cover.png',
+      why:'纯资讯型选题，信息量够但缺少对立关系。这条是六条里互动率最低的一条，也是我后来调整选题方向的直接原因。' },
+    { id:'TT1', title:'SGA 判罚与 Wemby UFO',      cat:'季后赛实时热点', views:15500, likes:505,   src:'../assets/library/TT1-cover.png',
+      why:'判罚争议自带讨论度，发布时点了比赛结束后的讨论高峰。' },
+    { id:'TT2', title:'Air Corgi 选择 Wemby 或 Brunson', cat:'总决赛前热点二创', views:59800, likes:2829, src:'../assets/works_tt2_dog_v1.png',
+      why:'把总决赛的对阵关系做成让角色“二选一”的形式，把观看变成参与。互动率 4.7%。' },
+    { id:'TT6', title:'Bronny 登机与 LeBron 直升机', cat:'热点二创', views:174700, likes:4192, src:'../assets/works_tt6_plane_v1.png',
+      why:'父子话题的传播面比篮球本身更宽，是这批里少数能出圈到非球迷的选题。' },
+    { id:'TT5', title:'三分王与街球传奇 1v1',      cat:'热点二创', views:1600000, likes:103700, src:'../assets/works_tt5_03.png',
+      why:'播放 1.6M，互动率 6.5%，两项都是最高。球星对抗关系被完整映射到游戏角色上，观众能一眼看懂谁在打谁。' },
+  ];
+  WORKS.sort((a, b) => a.views - b.views);
+  WORKS.forEach(w => { w.rate = w.likes / w.views * 100; });
+  const hero = WORKS.find(w => w.id === 'TT5');
+
+  /* ── chart ── */
+  const chart = document.getElementById('chart');
+  const VB_W = 1000, VB_H = 380;
+  const M = { t: 26, r: 34, b: 52, l: 62 };
+  const iw = VB_W - M.l - M.r, ih = VB_H - M.t - M.b;
+
+  const xMin = Math.log10(3000), xMax = Math.log10(3000000);
+  const yMin = 0, yMax = 7.5;
+  const X = v => M.l + (Math.log10(v) - xMin) / (xMax - xMin) * iw;
+  const Y = v => M.t + ih - (v - yMin) / (yMax - yMin) * ih;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${VB_W} ${VB_H}`);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', '六条 TikTok 作品的播放量与互动率分布散点图');
+  const ns = (tag, attrs = {}) => {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  };
+
+  const g = ns('g', { class: 'grid' });
+  // y grid
+  for (let v = 0; v <= 7; v += 1) {
+    g.appendChild(ns('line', { x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v) }));
+    const t = ns('text', { x: M.l - 12, y: Y(v) + 4, 'text-anchor': 'end' });
+    t.textContent = v + '%';
+    g.appendChild(t);
+  }
+  // x grid (log ticks)
+  [5000, 10000, 50000, 100000, 500000, 1000000].forEach(v => {
+    g.appendChild(ns('line', { x1: X(v), x2: X(v), y1: M.t, y2: M.t + ih }));
+    const t = ns('text', { x: X(v), y: M.t + ih + 22, 'text-anchor': 'middle' });
+    t.textContent = v >= 1000000 ? (v / 1000000) + 'M' : (v / 1000) + 'K';
+    g.appendChild(t);
+  });
+  svg.appendChild(g);
+
+  // average band
+  const avg = WORKS.reduce((s, w) => s + w.rate, 0) / WORKS.length;
+  svg.appendChild(ns('rect', { class: 'band', x: M.l, y: Y(avg) - 1, width: iw, height: 2 }));
+  const bl = ns('text', { class: 'band-label', x: M.l + iw - 6, y: Y(avg) - 10, 'text-anchor': 'end' });
+  bl.textContent = `平均互动率 ${avg.toFixed(1)}%`;
+  svg.appendChild(bl);
+
+  const xl = ns('text', { class: 'axis-title', x: M.l + iw, y: VB_H - 10, 'text-anchor': 'end' });
+  xl.textContent = '播放量（对数刻度）';
+  svg.appendChild(xl);
+  const yl = ns('text', { class: 'axis-title', x: M.l - 46, y: M.t - 12 });
+  yl.textContent = '互动率';
+  svg.appendChild(yl);
+
+  const nodes = [];
+  WORKS.forEach((w, i) => {
+    const grp = ns('g', { class: 'pt' + (w.id === 'TT5' ? ' hero' : ''), tabindex: '0', role: 'button' });
+    grp.setAttribute('aria-label', `${w.title}，播放 ${w.views.toLocaleString()}，互动率 ${w.rate.toFixed(1)}%`);
+    const r = w.id === 'TT5' ? 13 : 9;
+    grp.appendChild(ns('circle', { class: 'hit', cx: X(w.views), cy: Y(w.rate), r: 30 }));
+    const dot = ns('circle', { class: 'dot', cx: X(w.views), cy: Y(w.rate), r, style: 'transform-origin:center' });
+    grp.appendChild(dot);
+    const t = ns('text', {
+      x: X(w.views) + r + 8,
+      y: Y(w.rate) + 4,
+      'text-anchor': X(w.views) > VB_W - M.r - 130 ? 'end' : 'start',
+    });
+    t.textContent = w.id;
+    if (X(w.views) > VB_W - M.r - 130) t.setAttribute('x', X(w.views) - r - 8);
+    grp.appendChild(t);
+    svg.appendChild(grp);
+    nodes.push({ grp, dot, r, w });
+  });
+  chart.appendChild(svg);
+
+  /* ── detail panel ── */
+  const detail = document.getElementById('detail');
+  function render(w) {
+    detail.innerHTML = `
+      <img src="${w.src}" alt="${w.title} 视频静帧">
+      <div>
+        <h3>${w.title}</h3>
+        <p class="cat">${w.id} · ${w.cat}</p>
+        <dl>
+          <div><dt>播放量</dt><dd>${w.views.toLocaleString('en-US')}</dd></div>
+          <div><dt>点赞量</dt><dd>${w.likes.toLocaleString('en-US')}</dd></div>
+          <div><dt>互动率</dt><dd>${w.rate.toFixed(1)}%</dd></div>
+        </dl>
+        <p class="why">${w.why}</p>
+      </div>`;
+  }
+  function focus(w, grp) {
+    render(w);
+    chart.classList.add('dimmed');
+    nodes.forEach(n => n.grp.classList.toggle('on', n.grp === grp));
+  }
+  function blur() {
+    chart.classList.remove('dimmed');
+    nodes.forEach(n => n.grp.classList.remove('on'));
+  }
+  nodes.forEach(({ grp, w }) => {
+    grp.addEventListener('mouseenter', () => focus(w, grp));
+    grp.addEventListener('focus', () => focus(w, grp));
+    grp.addEventListener('mouseleave', blur);
+    grp.addEventListener('blur', blur);
+  });
+  render(hero);
+
+  // entrance: points grow from the axis, hero last
+  if (!flat) {
+    nodes.forEach((n, i) => {
+      n.dot.style.transform = 'scale(0.95)';
+      n.dot.style.opacity = '0';
+      n.dot.style.transition = `transform .6s var(--ease) ${i * 70}ms, opacity .5s ease ${i * 70}ms`;
+      requestAnimationFrame(() => {
+        n.dot.style.transform = '';
+        n.dot.style.opacity = '';
+      });
+    });
+  }
+
+  /* ── bars + counters + reveals ── */
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    el.classList.add('in');
+    const max = 571226;
+    el.querySelectorAll('[data-bar]').forEach(b => {
+      const v = +b.dataset.bar;
+      const fill = b.querySelector('.fill');
+      if (flat) { fill.style.width = (v / max * 100) + '%'; return; }
+      requestAnimationFrame(() => { fill.style.width = (v / max * 100) + '%'; });
+    });
+    io.unobserve(el);
+  }), { rootMargin: '0px 0px -12% 0px', threshold: .15 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const to = +el.dataset.count, suffix = el.dataset.suffix || '';
+    const done = () => { el.innerHTML = to + `<span>${suffix}</span>`; };
+    if (flat) { done(); return; }
+    const t0 = performance.now();
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / 1300), e = 1 - Math.pow(1 - p, 3);
+      el.innerHTML = Math.round(to * e) + `<span>${suffix}</span>`;
+      p < 1 ? requestAnimationFrame(tick) : done();
+    };
+    requestAnimationFrame(tick);
+  });
+})();
+</script>
+</body>
+</html>

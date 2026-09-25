@@ -1,0 +1,190 @@
+/* ============================================================
+   共享底座 · 令牌与基础层
+   三个方向共用这一层，差异只留在各自的 style.css 里。
+   规则来源：4px 基准间距、字号越大字距越紧、深底浅字三轴补偿、
+   只用 transform/opacity、缓动不用 ease-in、UI 过渡 <300ms。
+   ============================================================ */
+@import url("../../assets/fonts/lxgw-wenkai-tc/font.css");
+@font-face{font-family:"PX Serif";src:url("../../assets/fonts/noto-serif-sc-600-zhou-xingyun.woff2") format("woff2");font-style:normal;font-weight:600;font-display:swap;unicode-range:U+5468,U+6027,U+8FD0;}
+
+:root{
+  color-scheme:dark;
+
+  /* ── 底色与墨色：六角色 + 一个强调色 ── */
+  --ground:#0A0F0C;        /* 页面底 */
+  --surface:#111813;       /* 卡片/浮起面 */
+  --surface-2:#16201A;     /* 二级浮起 */
+  --paper:#EFEDE6;         /* 浅色硬切用的骨白 */
+  --paper-ink:#14150F;     /* 骨白上的墨 */
+  --paper-soft:#5A584E;    /* 骨白上的次级文字（染色灰，不是纯灰） */
+
+  --ink:#F1F6F3;           /* 主文字 */
+  --ink-soft:#A9BCB0;      /* 次级文字：由前景绿调染色，不是 #888 */
+  --ink-dim:#7C8F85;       /* 三级/标签 */
+  /* 四级值已按实测拉到 ≥4.5:1（底色 5.1:1、浮起面 4.9:1）。
+     深底上的小字需要更多对比，不是更少，所以这一级不能再压暗。 */
+  --ink-faint:#74887C;     /* 脚注：仅用于 12px 以上文字 */
+
+  --accent:#92EFAB;
+  --accent-soft:rgba(146,239,171,.14);
+  --accent-line:rgba(146,239,171,.34);
+
+  --line:rgba(255,255,255,.075);
+  --line-strong:rgba(255,255,255,.14);
+
+  /* ── 深度五件套：偏移阴影 / 边缘高光 / 缩放模糊 / 叠压 / 颗粒 ── */
+  --edge:inset 0 1px 0 rgba(255,255,255,.07);
+  --shadow-color:12,18,14;
+  --e1:0 2px 6px -1px rgba(var(--shadow-color),.5);
+  --e2:0 14px 32px -12px rgba(var(--shadow-color),.75);
+  --e3:0 44px 88px -34px rgba(var(--shadow-color),.92);
+
+  /* ── 间距：4px 基准，紧与松要有对比 ── */
+  --sp-1:4px;  --sp-2:8px;  --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --sp-7:48px; --sp-8:64px; --sp-9:96px; --sp-10:128px;--sp-11:192px;
+  --gutter:clamp(20px,5vw,72px);
+  --section:clamp(64px,11vh,140px);   /* 章节上下留白：上大于下由各自控制 */
+  --maxw:1200px;
+
+  /* ── 字号：7 级，不堆离散值 ── */
+  --t-xs:11.5px;
+  --t-sm:13px;
+  --t-base:15.5px;
+  --t-lead:19px;
+  --t-h4:23px;
+  --t-h3:clamp(26px,2.6vw,34px);
+  --t-h2:clamp(30px,3.6vw,48px);
+  --t-h1:clamp(40px,5.6vw,76px);
+  --t-display:clamp(54px,8vw,132px);
+  --t-num:clamp(64px,11vw,190px);
+
+  /* ── 行高与字距：字号越大字距越紧 ── */
+  --lead-display:.96;
+  --lead-head:1.22;
+  --lead-body:1.72;                /* 深底浅字要三轴补偿，行高第一轴 */
+  --track-display:-.04em;
+  --track-tight:-.02em;
+  --track-normal:.006em;           /* 第二轴：整体略放开 */
+  --track-label:.13em;
+  --measure:62ch;                  /* 正文行宽上限 */
+
+  /* ── 圆角：一套，不混用 ── */
+  --r-1:8px; --r-2:14px; --r-3:22px; --r-pill:99px;
+
+  /* ── 动效：UI <300ms；滚动设备由手控制，不受时长约束 ── */
+  --dur-1:140ms; --dur-2:220ms; --dur-3:320ms;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-soft:cubic-bezier(.32,.72,0,1);
+  --ease-inout:cubic-bezier(.65,0,.35,1);
+
+  --font-text:"Portfolio LXGW WenKai","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-display:"PX Serif","Songti SC",STSong,serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--font-text);font-size:var(--t-base);line-height:var(--lead-body);
+  letter-spacing:var(--track-normal);                 /* 浅字压深底要放开一点 */
+  font-weight:420;                                     /* 第三轴：字重抬一档 */
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+img,svg,video{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,h3,h4,p,figure,dl,dd,dt{margin:0}
+h1,h2,h3,h4{font-weight:550;line-height:var(--lead-head);letter-spacing:var(--track-tight)}
+ul,ol{margin:0;padding:0;list-style:none}
+[hidden]{display:none!important}
+
+/* ── 浏览器自带表面也要上色：最便宜的"这是被设计过"的信号 ── */
+::selection{background:var(--accent);color:#08110C}
+:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:3px}
+html{scrollbar-color:rgba(146,239,171,.3) transparent;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:rgba(146,239,171,.22);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(146,239,171,.4);background-clip:content-box}
+:root{caret-color:var(--accent)}
+
+/* ── 布局 ── */
+.wrap{width:min(var(--maxw),100% - 2*var(--gutter));margin-inline:auto}
+.bleed{width:100%}
+.measure{max-width:var(--measure)}
+.center{text-align:center}
+
+/* ── 排版基元 ── */
+.display{font-family:var(--font-display);font-size:var(--t-display);line-height:var(--lead-display);letter-spacing:var(--track-display)}
+.h1{font-size:var(--t-h1);letter-spacing:var(--track-display);line-height:1.06}
+.h2{font-size:var(--t-h2);letter-spacing:var(--track-tight)}
+.h3{font-size:var(--t-h3);letter-spacing:var(--track-tight)}
+.lead{font-size:var(--t-lead);line-height:1.66;color:var(--ink)}
+.body{color:var(--ink-soft)}
+.dim{color:var(--ink-dim)}
+.faint{color:var(--ink-faint)}
+.label{font-size:var(--t-xs);letter-spacing:var(--track-label);color:var(--ink-dim);text-transform:uppercase}
+.num{font-variant-numeric:tabular-nums;letter-spacing:var(--track-tight)}
+.balance{text-wrap:balance}
+.pretty{text-wrap:pretty}
+.accent{color:var(--accent)}
+.rule{height:1px;background:var(--line);border:0;margin:0}
+
+/* ── 按钮状态齐全：hover / focus-visible / active ── */
+.btn{
+  display:inline-flex;align-items:center;gap:var(--sp-3);
+  padding:13px 26px;border-radius:var(--r-pill);
+  border:1px solid var(--accent-line);background:var(--accent-soft);
+  font-size:var(--t-base);transition:background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),transform var(--dur-1) var(--ease-out);
+}
+.btn:hover{background:rgba(146,239,171,.2);border-color:var(--accent)}
+.btn:active{transform:scale(.97)}
+.quiet{
+  font-size:14.5px;color:var(--ink-soft);padding-bottom:2px;
+  border-bottom:1px solid rgba(169,188,176,.34);
+  transition:color var(--dur-1) var(--ease-out),border-color var(--dur-1) var(--ease-out);
+}
+.quiet:hover{color:var(--ink);border-color:var(--accent)}
+@media (hover:hover) and (pointer:fine){
+  .lift{transition:transform var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+  .lift:hover{transform:translateY(-3px);box-shadow:var(--e3)}
+}
+
+/* ── 颗粒：平涂的深底在真实屏幕上会断层 ── */
+.grain{
+  position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.skip-link{
+  position:fixed;top:8px;left:8px;z-index:200;transform:translateY(-160%);
+  background:var(--accent);color:#08110C;padding:10px 18px;border-radius:var(--r-1);
+  font-size:14px;transition:transform var(--dur-2) var(--ease-out);
+}
+.skip-link:focus{transform:none}
+
+/* ── 共享的揭示基元。被裁切的元素一律用外层哨兵触发，见 motion.js ── */
+[data-reveal]{will-change:auto}
+[data-reveal="up"]{opacity:0;transform:translateY(20px)}
+[data-reveal="up"].is-in{opacity:1;transform:none;transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+[data-reveal="fade"]{opacity:0}
+[data-reveal="fade"].is-in{opacity:1;transition:opacity .8s var(--ease-out)}
+.wipe{display:block;overflow:hidden;padding-bottom:.06em}
+.wipe>*{display:block;transform:translateY(105%)}
+.wipe.is-in>*{transform:none;transition:transform .95s var(--ease-out)}
+[data-stagger].is-in>*{transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+[data-stagger]{opacity:0;transform:translateY(16px)}
+[data-stagger].is-in{opacity:1;transform:none}
+[data-stagger].is-in>*{opacity:1}
+
+/* ── 减少动效：更少更轻，而不是全部归零。
+      保留承载理解的不透明度变化，去掉所有位移。 ── */
+@media (prefers-reduced-motion:reduce){
+  [data-reveal],[data-stagger],[data-stagger]>*,.wipe>*{opacity:1!important;transform:none!important;transition:none!important}
+  *{scroll-behavior:auto!important}
+}
+/* ?flat=1：用于截图与 PDF 导出，把页面压到最终态 */
+html.flat [data-reveal],html.flat [data-stagger],html.flat [data-stagger]>*,
+html.flat .wipe>*{opacity:1!important;transform:none!important;transition:none!important}

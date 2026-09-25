@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="周性运个人作品集 · 证据版：六条 TikTok 作品的播放量与互动率、虎扑长文阅读与回复、日韩教学内容与 Instagram 作品的原始数据与读数。数字均标来源与核实日期。">
+<title>周性运 · 内容运营证据页</title>
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <div class="topbar-id">
+      <b>周性运</b>
+      <span id="topbar-role"></span>
+    </div>
+    <a class="mail" href="mailto:2228144556@qq.com" data-email>邮箱</a>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- ── 01 首屏：名字 + 一句定位 + 四格账本（紧凑，不堆大标题） ── -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <h1 id="hero-title">周性运</h1>
+          <p class="role" id="hero-role"></p>
+          <p class="cohort" id="hero-cohort"></p>
+        </div>
+        <div class="hero-why">
+          <p><b>这一页把做过的内容当数据读。</b><span data-num="works-count"></span> 条 TikTok 短视频、<span data-num="hupu-count"></span> 篇虎扑长文、<span data-num="insta-count"></span> 件 Instagram 作品、日韩 <span data-num="local-count"></span> 条教学内容 —— 每个数字都标了来源和核实日期，没有一个是估的。</p>
+          <p class="dim" id="hero-one-line"></p>
+          <p class="dim" id="hero-edu"></p>
+        </div>
+      </div>
+
+      <div class="ledger-wrap">
+        <h2 class="sr-only" id="ledger-cap">四个关键数字与它们的出处</h2>
+        <ul class="ledger" id="ledger" aria-labelledby="ledger-cap"></ul>
+      </div>
+      <p class="ledger-note">四个数字依次是：单条 TikTok 播放、单篇虎扑阅读、开拍 RALLY 累计玩家、TikTok 账号粉丝。口径与日期随数字标注；本站不引用任何未留存的数字。</p>
+    </div>
+  </section>
+
+  <!-- ── 02 峰值：六条作品的播放量 × 互动率 ── -->
+  <section id="evidence" class="evidence" aria-labelledby="ev-title">
+    <div class="wrap">
+      <header class="sec-head">
+        <p class="eyebrow">TikTok · 六条作品的原始数据</p>
+        <h2 id="ev-title">把六条视频放在同一张图上</h2>
+        <p class="sec-lead">横轴是播放量（对数刻度），纵轴是互动率，由每条自己的点赞 ÷ 播放量现算。鼠标移上去，或者用 <b>Tab</b> 走到任意一个点再按 <b>Enter</b>，下面的面板会换成那一条的完整数字和当时的判断。</p>
+      </header>
+
+      <!-- 被 clip-path 裁切的是 .chart-card，所以观察哨兵指向外层未裁切的 #evidence -->
+      <div class="plot" data-watch="#evidence">
+        <div class="chart-card">
+          <div class="chart-head">
+            <h3>播放量 × 互动率 · 六条 TikTok 作品</h3>
+            <p class="src" id="chart-src"></p>
+          </div>
+          <div class="chart" id="chart"></div>
+          <div class="detail" id="detail"></div>
+        </div>
+      </div>
+
+      <div class="annex">
+        <div>
+          <h3>怎么读这张图</h3>
+          <ul class="read-list">
+            <li><b>横轴必须取对数。</b>六条的播放量相差 <span class="mono" data-num="views-spread"></span>，线性刻度会把后五条全挤在纵轴旁边。对数刻度下相邻两格相差 10 倍，所以 4K→40K 和 100K→1M 在图上是同样长的一段。</li>
+            <li><b>纵轴是互动率。</b>互动率 = 点赞 ÷ 播放量，直接从每条的两个数字现算，不另立口径。</li>
+            <li><b>虚线是六条均值 <span class="mono" data-num="avg-rate"></span>。</b>它不是目标线，只用来判断一条偏高还是偏低。</li>
+            <li><b>样本只有 <span class="mono" data-num="works-count"></span> 条。</b>图上任何单个点都撑不起结论，只能看方向。另外六条发布时间不同，播放量是发布后的累计值，因此播放量之间不严格可比，互动率相对可比。</li>
+          </ul>
+        </div>
+        <div id="table"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 03 结论：本页最重要的一段 ── -->
+  <section class="reading" aria-labelledby="read-title">
+    <div class="wrap">
+      <h2 id="read-title">这张图我读出三件事</h2>
+      <ol class="judgments">
+        <li>
+          <h3>播放量最大的一条，恰好也是互动率最高的一条 —— 但这是两件事</h3>
+          <p><b><span data-num="top-rate-id"></span></b> 是六条里唯一的双料第一：<span class="mono" data-num="top-rate-views"></span> 播放、<span class="mono" data-num="top-rate"></span> 互动率。所以在这批样本的最顶端，两个指标并没有分开。</p>
+          <p>往下看就分开了：<b data-num="tt6-id">TT6</b> 的播放量是 <b data-num="tt2-id">TT2</b> 的 <span class="mono" data-num="tt6-tt2-views"></span>（<span class="mono" data-num="tt6-views"></span> 对 <span class="mono" data-num="tt2-views"></span>），互动率却更低（<span class="mono" data-num="tt6-rate"></span> 对 <span class="mono" data-num="tt2-rate"></span>）。我的读法：播放量回答「传出去多远」，互动率回答「抓住多少人」；一条出圈不能证明内容结构对了，也不能拿播放量替代互动率。</p>
+          <p class="caveat">克制一句：六条里播放量相差 <span class="mono" data-num="views-spread"></span>，互动率只相差 <span class="mono" data-num="rate-spread"></span>。差距量级差这么多，我不敢说这两个指标相互独立，只能说它们不完全是一回事。</p>
+        </li>
+        <li>
+          <h3>互动率最低的那条，是唯一的纯资讯选题</h3>
+          <p>互动率最低的 <b><span data-num="low-rate-id"></span></b> 是六条里唯一的资讯型选题（球员阵容话题），互动率 <span class="mono" data-num="low-rate"></span>，只有均值 <span class="mono" data-num="avg-rate"></span> 的一半。</p>
+          <p>而互动率排前二的两条都把「谁对谁」直接做进了画面：三分王与街球传奇的 <b>1v1</b>（<span class="mono" data-num="top-rate"></span>）、Air Corgi 的 <b>二选一</b>（<span class="mono" data-num="tt2-rate"></span>）。所以选题时我会先看题材里有没有对立关系，而不是先看信息量够不够大。</p>
+          <p class="caveat">这条规律不是开关：<b data-num="tt4-id">TT4</b> 也是冲突题材（从队友到对手），互动率 <span class="mono" data-num="tt4-rate"></span>，低于均值 —— 对立关系得让人一眼看懂是谁对谁。样本这么小，我不会把它写成方法论。</p>
+        </li>
+        <li>
+          <h3>这套读法来自逐条记录，不是事后回忆</h3>
+          <p>每条发布后，我在同一张表里记下<strong>题材、播放量、点赞量</strong>；过一段时间再按题材把同类的那几条挑出来，放在一起回看。1v1 这个方向就是从 TT3 与 TT5 的对比里读出来的。</p>
+          <p>图上每个数字都来自那张表，口径 <span class="mono" id="read-src-note"></span>。复盘对我来说不是交报告，是为了下一次选题时手里有依据。</p>
+          <p class="caveat">这也是这张图真正的用途：它不是成绩单，是一份可以继续往下记的记录表。</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 04 工作方法：五步流程 ── -->
+  <section id="method" class="method" aria-labelledby="method-title">
+    <div class="wrap">
+      <header class="sec-head">
+        <h2 id="method-title">上面那些数字是怎么来的</h2>
+        <p class="sec-lead">TikTok 的内容我负责五步，从找选题一直做到复盘。<b>第 4 步产出的记录，就是那张散点图的数据来源。</b></p>
+      </header>
+      <!-- 流程轨用 clip-path 生长，观察哨兵指向外层未裁切的 #method -->
+      <div class="flow-wrap" data-watch="#method">
+        <div class="flow-rail" aria-hidden="true"><i></i></div>
+        <ol class="flow" id="flow"></ol>
+      </div>
+      <p class="flow-foot">记录方式很简单：每条发布后写下题材、播放量和点赞量，过一段时间按题材归类回看。<a href="#evidence">回到那张散点图 ↗</a></p>
+    </div>
+  </section>
+
+  <!-- ── 05 其他证据 ── -->
+  <section id="other" class="other" aria-labelledby="other-title">
+    <div class="wrap">
+      <header class="sec-head">
+        <p class="eyebrow">其他证据</p>
+        <h2 id="other-title">除了 TikTok，还留下了这些记录</h2>
+      </header>
+
+      <div class="block">
+        <div class="block-head">
+          <h3>虎扑两篇长文：阅读量与回复量</h3>
+          <p class="src" id="hupu-src"></p>
+        </div>
+        <!-- 条宽按真实比例由 JS 现算；生长用 clip-path，哨兵仍是未裁切的 #other -->
+        <div class="bars" id="bars" data-watch="#other"></div>
+        <p class="bars-note"><b>两篇的读法不太一样。</b>第一篇的阅读量是 <span class="mono" data-num="hupu-views-first"></span>，第二篇只有它的 <span class="mono" data-num="hupu-views-ratio"></span>；但第二篇的回复量反而是第一篇的 <span class="mono" data-num="hupu-replies-ratio"></span>。阅读靠标题和话题面，回复靠议题有没有立场可分 —— 一篇是「他是被淘汰了吗」这类信息求证，一篇是中日足球差距这种站队型议题。</p>
+        <p class="credit" id="hupu-role"></p>
+        <p class="credit" id="hupu-event"></p>
+      </div>
+
+      <div class="block">
+        <div class="block-head">
+          <h3>日韩上线教学内容</h3>
+          <p class="src" id="local-src"></p>
+        </div>
+        <div class="local-grid">
+          <div>
+            <p class="local-count" data-num="local-count"></p>
+            <p class="local-label" id="local-label"></p>
+            <p class="local-brief" id="local-brief"></p>
+            <p class="credit" id="local-credit"></p>
+          </div>
+          <div>
+            <ol class="local-steps" id="local-steps"></ol>
+            <figure class="capture" id="local-capture"></figure>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="block-head">
+          <h3>Instagram：<span data-num="insta-count"></span> 件作品</h3>
+          <p class="src" id="insta-src"></p>
+        </div>
+        <div class="insta-grid">
+          <div class="insta-lead">
+            <p id="insta-brief"></p>
+            <p class="tags" id="insta-tags"></p>
+            <figure class="insta-top" id="insta-top"></figure>
+          </div>
+          <div>
+            <div class="insta-list" id="insta-list"></div>
+            <p class="insta-note">7 件里只有 <span data-num="insta-metrics-count"></span> 件留存了公开的点赞与评论数，其余不列数字。「GUESS WHO」系列和两支短视频的最终成图由美术与制作团队完成，我负责创意、Brief 和审核。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 06 账号实践 ── -->
+  <section id="practice" class="practice" aria-labelledby="practice-title">
+    <div class="wrap">
+      <h2 id="practice-title">在运营的账号，和自己在做的项目</h2>
+      <div class="practice-grid">
+        <article class="card douyin" id="douyin" aria-label="个人账号 詹库侠"></article>
+        <article class="card rally" id="rally" aria-label="个人项目 开拍 RALLY"></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 07 联系：邮箱做主角 ── -->
+  <section id="contact" class="contact" aria-labelledby="contact-title">
+    <div class="wrap">
+      <h2 id="contact-title">来找我聊聊</h2>
+      <p class="lead" id="contact-lead"></p>
+      <a class="email" href="mailto:2228144556@qq.com" data-email>邮箱</a>
+      <dl class="contact-row" id="contact-rows"></dl>
+      <div class="provenance" id="provenance"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="../shared/content.js"></script>
+<script src="../shared/motion.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

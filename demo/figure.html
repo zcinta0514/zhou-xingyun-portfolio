@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>转头跟随光标 · 人物形象</title>
+<style>
+  /* ==========================================================================
+     视觉基调：浅骨白底 + 柔和接触阴影 + 极缓慢的呼吸浮动
+     ========================================================================== */
+  :root{
+    --bg:#EFEDE6;          /* 浅骨白背景 */
+    --ink:#5A5246;         /* 文字 / 焦点环 */
+    --shadow:62,54,42;     /* 接触阴影的基色（rgb 分量，方便调透明度） */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    overflow:hidden;                       /* 形象永不溢出视口 */
+    font:400 13px/1.6 ui-sans-serif,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .stage{
+    position:fixed; inset:0;
+    display:grid; place-items:center;
+    padding:4vmin;                         /* 安全边距，layout() 会把它算进可用尺寸 */
+  }
+
+  /* 形象框：宽高由 JS 按图片比例算出，保证 object-fit 正好铺满 */
+  .figure{
+    position:relative;
+    outline:none;
+    opacity:0;                             /* 所有帧预加载完成前不显示 */
+    transition:opacity .55s ease;
+  }
+  .figure.ready{opacity:1}
+  /* 键盘焦点环：只在键盘导航时出现 */
+  .figure:focus-visible{
+    outline:2px solid var(--ink);
+    outline-offset:12px;
+    border-radius:16px;
+  }
+
+  /* 帧容器：呼吸浮动加在这里，不影响阴影与布局 */
+  .frames{
+    position:absolute; inset:0;
+    will-change:transform;
+  }
+  .frame{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;                    /* 不裁切、不变形 */
+    opacity:0;                             /* 由脚本逐帧写入交叉淡入透明度 */
+    transform:translateZ(0);               /* 各自独立合成层，透明度切换不重绘 */
+    backface-visibility:hidden;
+    /* 边缘羽化：抹掉图片自带的方形背景边界，中心区域不受影响 */
+    -webkit-mask-image:radial-gradient(ellipse 50% 54% at 50% 50%,#000 78%,transparent 100%);
+    mask-image:radial-gradient(ellipse 50% 54% at 50% 50%,#000 78%,transparent 100%);
+    -webkit-user-drag:none;
+    user-select:none;
+    pointer-events:none;
+  }
+
+  /* 接触阴影：椭圆径向渐变，中心压在形象框底边附近 */
+  .shadow{
+    position:absolute; left:50%;
+    transform:translateX(-50%);
+    background:radial-gradient(closest-side,
+      rgba(var(--shadow),.20) 0%,
+      rgba(var(--shadow),.13) 45%,
+      rgba(var(--shadow),.05) 72%,
+      rgba(var(--shadow),0) 100%);
+    filter:blur(6px);                      /* 再糊一层，边缘完全化开 */
+    pointer-events:none;
+  }
+
+  /* ==========================================================================
+     加载提示：一条细进度线 + 百分比数字（没有旋转菊花）
+     ========================================================================== */
+  .loader{
+    position:fixed; inset:0;
+    display:grid; place-content:center; justify-items:center; gap:18px;
+    pointer-events:none;
+    transition:opacity .45s ease, visibility 0s linear .45s;
+  }
+  .loader.done{opacity:0; visibility:hidden}
+  .loader-track{
+    width:170px; height:1px;
+    background:rgba(90,82,70,.18);
+    overflow:hidden;
+  }
+  .loader-bar{
+    display:block; width:100%; height:100%;
+    background:var(--ink);
+    transform:scaleX(0); transform-origin:0 50%;
+    transition:transform .2s linear;
+  }
+  .loader-pct{
+    font-size:11px; letter-spacing:.18em;
+    font-variant-numeric:tabular-nums;
+    color:rgba(90,82,70,.75);
+  }
+  .loader-note{font-size:11px; letter-spacing:.12em; color:rgba(90,82,70,.55)}
+  .loader-note.error{color:#8C4A3A; letter-spacing:.04em}
+  .loader.failed .loader-track,
+  .loader.failed .loader-pct{display:none}
+
+  /* 减弱动效：连过渡也一并关掉，界面完全静止 */
+  @media (prefers-reduced-motion:reduce){
+    .figure,.loader,.loader-bar{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================ 结构 ============================
+     .stage  舞台（铺满视口，只负责居中与安全边距）
+     .figure 形象框：role=img + 有意义的 aria-label，可聚焦接收方向键
+       .shadow 接触阴影（在帧之下）
+       .frames 帧容器（呼吸浮动作用于此）
+         img.frame × N（同一角色的不同角度） -->
+<div class="stage" id="stage">
+  <div class="figure" id="figure"
+       role="img"
+       tabindex="0"
+       aria-keyshortcuts="ArrowLeft ArrowRight"
+       aria-label="黏土质感的人物半身像：正面站立、微微含笑，会跟随鼠标左右移动转头看向光标。聚焦后可用左右方向键，每次五度手动调整朝向。">
+    <div class="shadow" id="shadow" aria-hidden="true"></div>
+    <div class="frames" id="frames"></div>
+  </div>
+</div>
+
+<div class="loader" id="loader" role="status" aria-live="polite">
+  <div class="loader-track" aria-hidden="true"><i class="loader-bar" id="bar"></i></div>
+  <div class="loader-pct" id="pct" aria-hidden="true">0%</div>
+  <div class="loader-note" id="note">正在准备形象素材</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ==================================================================================
+   转头跟随光标 —— 角度序列 + 交叉淡入，零依赖、file:// 直接可开
+   ----------------------------------------------------------------------------------
+   机制：
+     1) 鼠标横向位置 x 线性映射到目标角度 target ∈ [最左角度, 最右角度]
+     2) 用帧率无关的阻尼 k = 1 - exp(-λ·dt) 让当前角度 cur 逼近 target
+     3) 把 cur 落在相邻两帧之间，做交叉淡入：两帧叠加，透明度互补（底帧 1-e、顶帧 e），
+        插值比例再经 smoothstep 重映射（两端慢、中间快），缩短「两帧各半」的双影停留时间。
+        —— 不要为了让画面更实而把底帧钉在 1：底帧会在顶帧轮廓之外露出一圈多余的肉影轮廓，
+           且在插值比例跑到 1 的瞬间整块实体化，比半透明难看得多。
+   换形象：只改下面的 FRAMES 数组。
+   ================================================================================== */
+
+/* ----------------------------- §1 配置：帧序列 -----------------------------
+   同一角色、不同旋转角度；按 angle 从小到大排列。
+   真实素材放进 assets/raw/character/ 后替换 src 即可，其余逻辑无需改动。 */
+const BASE = '../';          // 素材根路径：本页在 demo/ 下，素材在仓库根目录（file:// 与 http:// 都成立）
+const FRAMES = [
+  { src: 'assets/raw/character/turn/left-30.webp',  angle: -30 },
+  { src: 'assets/raw/character/turn/left-15.webp',  angle: -15 },
+  { src: 'assets/raw/character/front.webp',         angle:   0 },
+  { src: 'assets/raw/character/turn/right-15.webp', angle:  15 },
+  { src: 'assets/raw/character/turn/right-30.webp', angle:  30 },
+];
+
+/* ----------------------------- §2 可调参数 ----------------------------- */
+const OPT = {
+  lambda:      8.5,    // 阻尼系数 λ（跟随鼠标）：τ=1/λ≈118ms，约 0.35s 内到位，跟手但不生硬
+  lambdaIdle:  3.0,    // 鼠标移出窗口后回正用的更小 λ：τ≈330ms，是「缓慢回到正面」的节奏
+  floatPeriod: 5,      // 呼吸浮动周期（秒）
+  floatAmp:    6,      // 呼吸浮动幅度（px，向上）
+  keyStep:     5,      // 方向键每次调整的角度（度）
+  reacquire:   24,     // 键盘接管后，鼠标需移动多少 px 才重新夺回控制权
+  shadowW:     0.50,   // 接触阴影宽 / 形象框宽
+  shadowH:     0.075,  // 接触阴影高 / 形象框高（下半个露在身体下方，上半个被身体遮住）
+  shadowY:     0.005,  // 接触阴影下沿距形象框底边 / 形象框高
+  maxWait:     15000,  // 预加载兜底超时（ms），避免提示条永远卡住
+};
+
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+
+/* ----------------------------- §3 DOM ----------------------------- */
+const stageEl  = document.getElementById('stage');
+const figureEl = document.getElementById('figure');
+const framesEl = document.getElementById('frames');
+const shadowEl = document.getElementById('shadow');
+const loaderEl = document.getElementById('loader');
+const barEl    = document.getElementById('bar');
+const pctEl    = document.getElementById('pct');
+const noteEl   = document.getElementById('note');
+
+/* ----------------------------- §4 状态 ----------------------------- */
+const state = {
+  frames: [],        // 实际可用的帧（加载失败的已剔除），按 angle 升序
+  els: [],           // 与 frames 一一对应的 <img>
+  ops: [],           // 上一次写入的透明度，用来跳过无变化的写操作
+  cur: 0,            // 当前展示角度（阻尼后的值）
+  target: 0,         // 目标角度
+  cursorIn: false,   // 指针是否在窗口内
+  keyboard: false,   // 键盘已接管：暂停鼠标跟随，避免两者打架
+  phase: 0,          // 呼吸相位（秒，累积 dt）
+  last: 0,           // 上一帧时间戳
+  raf: 0,
+  ar: 3 / 4,         // 形象宽高比，图片加载完成后按真实尺寸修正
+  reduced: false,
+};
+const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ----------------------------- §5 预加载 ----------------------------- */
+/* 先把所有帧建成 <img> 并挂到 DOM，用 load/error 作为预加载信号；
+   全部 settle 之后才显示形象。单帧失败只跳过并警告，不拖垮整页。 */
+function preload(){
+  let settled = false, done = 0, guard = 0;
+  const total = FRAMES.length;
+  const imgs = FRAMES.map((f, i) => {
+    const img = document.createElement('img');
+    img.className = 'frame';
+    img.alt = '';                          // 语义交给 .figure 的 aria-label
+    img.setAttribute('aria-hidden', 'true');
+    img.draggable = false;
+    img.decoding = 'async';
+    img.style.zIndex = String(i);          // 角度越大越靠上，交叉淡入的底/顶关系稳定
+    framesEl.appendChild(img);
+    return img;
+  });
+
+  const tickProgress = () => {
+    const p = total ? done / total : 1;
+    barEl.style.transform = 'scaleX(' + p.toFixed(3) + ')';
+    pctEl.textContent = Math.round(p * 100) + '%';
+  };
+  tickProgress();
+
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(guard);
+    const ok = [];
+    FRAMES.forEach((f, i) => ok[i] = imgs[i].dataset.ok === '1');
+    state.frames = FRAMES.filter((f, i) => ok[i]);
+    state.els    = imgs.filter((img, i) => ok[i]);
+    state.ops    = state.frames.map(() => -1);
+
+    if (!state.frames.length){            // 全部失败：给出可读的提示，页面不崩
+      loaderEl.classList.add('failed');
+      noteEl.classList.add('error');
+      noteEl.textContent = '形象素材加载失败：请检查 assets/raw/character/ 下的图片路径';
+      return;
+    }
+    const first = state.els[0];
+    if (first.naturalWidth && first.naturalHeight){
+      state.ar = first.naturalWidth / first.naturalHeight;
+    }
+    layout();
+    render(0);
+    if (state.reduced) showSingleFrame(nearestFront());
+    loaderEl.classList.add('done');
+    figureEl.classList.add('ready');
+    if (!state.reduced) start();
+  };
+
+  imgs.forEach((img, i) => {
+    const settle = (okFlag) => {
+      img.dataset.ok = okFlag ? '1' : '0';
+      if (!okFlag){
+        console.warn('[figure] 帧加载失败，已跳过：', BASE + FRAMES[i].src, '（角度 ' + FRAMES[i].angle + '°）');
+        img.remove();
+      }
+      done++; tickProgress();
+      if (done === total) finish();
+    };
+    img.addEventListener('load',  () => settle(true),  { once:true });
+    img.addEventListener('error', () => settle(false), { once:true });
+    img.src = BASE + FRAMES[i].src;
+  });
+
+  // 兜底：万一某个请求既不 load 也不 error，也不能让提示条永远停在那儿
+  guard = setTimeout(() => {
+    if (settled) return;
+    console.warn('[figure] 预加载超时，先用已就绪的帧继续');
+    imgs.forEach((img, i) => {
+      if (img.dataset.ok === undefined){ img.dataset.ok = '0'; img.remove(); done++; }
+    });
+    tickProgress();
+    finish();
+  }, OPT.maxWait);
+}
+
+/* ----------------------------- §6 交叉淡入 ----------------------------- */
+/* 把角度拆成至多两个帧：底帧透明度 1-e、顶帧透明度 e，两者之和恒为 1。
+   两个要点：
+   · 不能让底帧恒定不透明来「避免发虚」—— 底帧会在顶帧轮廓之外露出一圈重影轮廓，
+     且在 t→1 时整块实体化，比半透明难看得多；互补的透明度才是唯一自洽的写法。
+   · 用 smoothstep 重映射插值比例：两端（还没有重影的地方）走得慢一点、中间走得快一点，
+     缩短「两帧各半」的双影停留时间。 */
+function blend(angle){
+  const f = state.frames, n = f.length;
+  if (n === 0) return [];
+  if (n === 1 || angle <= f[0].angle) return [[0, 1]];
+  if (angle >= f[n - 1].angle)        return [[n - 1, 1]];
+  let i = 0;
+  while (i < n - 2 && angle > f[i + 1].angle) i++;
+  const span = f[i + 1].angle - f[i].angle;
+  const t = span > 0 ? clamp((angle - f[i].angle) / span, 0, 1) : 0;
+  const e = t * t * (3 - 2 * t);        // smoothstep
+  // 足够接近某一帧就只留它，避免留下一层永远抹不掉的极淡残影
+  if (e <= 0.004) return [[i, 1]];
+  if (e >= 0.996) return [[i + 1, 1]];
+  return [[i, 1 - e], [i + 1, e]];
+}
+function render(angle){
+  const next = {};
+  for (const [i, o] of blend(angle)) next[i] = o;
+  for (let i = 0; i < state.els.length; i++){
+    const o = next[i] || 0;
+    if (Math.abs(o - state.ops[i]) < 0.003) continue;   // 变化太小就别碰样式，省一次重算
+    state.els[i].style.opacity = o === 1 ? '1' : o.toFixed(3);
+    state.ops[i] = o;
+  }
+}
+/* 完全静止时只留一帧 */
+function showSingleFrame(i){
+  state.els.forEach((el, k) => {
+    const o = k === i ? 1 : 0;
+    el.style.opacity = o ? '1' : '0';
+    state.ops[k] = o;
+  });
+}
+/* 最接近正面的那一帧 */
+function nearestFront(){
+  let best = 0;
+  state.frames.forEach((f, i) => {
+    if (Math.abs(f.angle) < Math.abs(state.frames[best].angle)) best = i;
+  });
+  return best;
+}
+
+/* ----------------------------- §7 布局 ----------------------------- */
+function layout(){
+  const cs = getComputedStyle(stageEl);
+  const availW = stageEl.clientWidth  - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const availH = stageEl.clientHeight - parseFloat(cs.paddingTop)  - parseFloat(cs.paddingBottom);
+  const ar = state.ar;
+  // 高不超过可用高度的 88%、宽不超过可用宽度的 90% —— 任何窗口比例下都不溢出
+  const w = Math.max(1, Math.min(availW * 0.90, availH * 0.88 * ar));
+  const h = w / ar;
+  figureEl.style.width  = w + 'px';
+  figureEl.style.height = h + 'px';
+  // 阴影尺寸也随框走，保证不同尺寸下贴地位置一致
+  shadowEl.style.width  = (w * OPT.shadowW) + 'px';
+  shadowEl.style.height = (h * OPT.shadowH) + 'px';
+  shadowEl.style.bottom = (h * OPT.shadowY) + 'px';
+}
+
+/* ----------------------------- §8 主循环 ----------------------------- */
+function start(){
+  if (state.raf || state.reduced) return;
+  state.last = 0;
+  state.raf = requestAnimationFrame(tick);
+}
+function stop(){
+  if (state.raf) cancelAnimationFrame(state.raf);
+  state.raf = 0;
+}
+function tick(now){
+  state.raf = requestAnimationFrame(tick);
+  // dt 上限 50ms：标签页/系统卡顿回来后不会一步跳到位
+  const dt = state.last ? Math.min((now - state.last) / 1000, 0.05) : 0;
+  state.last = now;
+
+  /* —— 阻尼跟随：k = 1 - exp(-λ·dt)，与帧率无关 —— */
+  const lambda = state.cursorIn ? OPT.lambda : OPT.lambdaIdle;
+  const k = 1 - Math.exp(-lambda * dt);
+  state.cur += (state.target - state.cur) * k;
+  if (Math.abs(state.target - state.cur) < 0.05) state.cur = state.target;  // 收敛吸附
+  render(state.cur);
+
+  /* —— 呼吸浮动：5s 一个来回，sin 驱动，translateY ∈ [0, -6px] —— */
+  state.phase += dt;
+  const y = -OPT.floatAmp * 0.5 * (1 - Math.cos(TAU * state.phase / OPT.floatPeriod));
+  framesEl.style.transform = 'translate3d(0,' + y.toFixed(2) + 'px,0)';
+  // 抬起来的时候影子稍微收一点、淡一点，落地感更自然
+  const p = -y / OPT.floatAmp;
+  shadowEl.style.transform = 'translateX(-50%) scale(' + (1 - 0.035 * p).toFixed(4) + ')';
+  shadowEl.style.opacity   = (1 - 0.14 * p).toFixed(3);
+}
+
+/* ----------------------------- §9 鼠标 ----------------------------- */
+/* 横向位置线性映射：视口最左 → 最左角度，最右 → 最右角度 */
+function angleFromX(x){
+  const f = state.frames;
+  if (f.length < 2) return f.length ? f[0].angle : 0;
+  const u = clamp(x / Math.max(1, window.innerWidth), 0, 1);
+  return f[0].angle + (f[f.length - 1].angle - f[0].angle) * u;
+}
+let lastPt = null;
+window.addEventListener('mousemove', (e) => {
+  if (state.reduced || !state.frames.length) return;
+  if (state.keyboard){
+    // 键盘接管中：鼠标要「明显移动」一次才重新夺回控制权，避免轻微抖动就打断键盘操作
+    if (!lastPt || Math.hypot(e.clientX - lastPt.x, e.clientY - lastPt.y) <= OPT.reacquire){
+      lastPt = { x:e.clientX, y:e.clientY };
+      return;
+    }
+    state.keyboard = false;
+  }
+  lastPt = { x:e.clientX, y:e.clientY };
+  state.cursorIn = true;
+  state.target = angleFromX(e.clientX);
+}, { passive:true });
+
+/* 指针离开窗口 → 目标归零，由阻尼缓慢回到正面 */
+function leaveWindow(){
+  if (state.reduced) return;
+  state.cursorIn = false;
+  if (!state.keyboard) state.target = 0;
+}
+function onOut(e){ if (!e.relatedTarget) leaveWindow(); }   // relatedTarget 为空 = 真的离开了窗口
+document.addEventListener('mouseleave', leaveWindow);
+document.addEventListener('mouseout', onOut, { passive:true });
+window.addEventListener('blur', leaveWindow);
+
+/* ----------------------------- §10 键盘 ----------------------------- */
+figureEl.addEventListener('keydown', (e) => {
+  if (state.reduced) return;                       // 减弱动效时完全静止，不响应调整
+  const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+  if (!dir) return;
+  e.preventDefault();
+  const f = state.frames;
+  if (f.length < 1) return;
+  state.keyboard = true;                           // 键盘接管，抑制鼠标跟随
+  const min = f[0].angle, max = f[f.length - 1].angle;
+  const from = Math.round(state.target / OPT.keyStep) * OPT.keyStep;   // 对齐到步进网格，连按可累加
+  state.target = clamp(from + dir * OPT.keyStep, min, max);
+  state.cursorIn = true;
+});
+
+/* ----------------------------- §11 减弱动效 ----------------------------- */
+/* prefers-reduced-motion: reduce → 完全静止：只显示正面那一帧，不跟随鼠标、不浮动 */
+function applyMotionPref(){
+  state.reduced = mqReduce.matches;
+  if (state.reduced){
+    stop();
+    framesEl.style.transform = 'translate3d(0,0,0)';
+    shadowEl.style.transform = 'translateX(-50%)';
+    shadowEl.style.opacity = '1';
+    state.target = state.cur = 0;
+    figureEl.removeAttribute('tabindex');          // 静止时不再接受键盘调整，避免「能聚焦但无反应」
+    if (state.frames.length) showSingleFrame(nearestFront());
+  } else {
+    figureEl.setAttribute('tabindex', '0');
+    if (state.frames.length){ render(state.cur); start(); }
+  }
+}
+if (mqReduce.addEventListener) mqReduce.addEventListener('change', applyMotionPref);
+else if (mqReduce.addListener) mqReduce.addListener(applyMotionPref);
+
+/* ----------------------------- §12 尺寸 / 可见性 ----------------------------- */
+window.addEventListener('resize', layout);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stop();                     // 页面不可见时暂停 rAF
+  else if (!state.reduced) start();
+});
+
+/* ----------------------------- §13 启动 ----------------------------- */
+applyMotionPref();
+preload();
+
+/* 自检用的只读钩子（截图脚本读取角度，不影响页面行为） */
+window.__figure = {
+  get angle(){ return state.cur; },
+  get target(){ return state.target; },
+  get info(){ return { angle:+state.cur.toFixed(2), target:state.target,
+    frames:state.frames.map(f=>f.angle), reduced:state.reduced,
+    cursorIn:state.cursorIn, keyboard:state.keyboard, ready:figureEl.classList.contains('ready') }; }
+};
+})();
+</script>
+</body>
+</html>

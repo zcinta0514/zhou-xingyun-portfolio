@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三个方向 · 初版对比</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+  body { padding-bottom: var(--sp-11); }
+  .hub { max-width: 980px; margin-inline: auto; padding: clamp(48px,8vh,110px) var(--gutter) 0; }
+  .hub h1 { font-size: var(--t-h1); letter-spacing: var(--track-display); margin-bottom: var(--sp-5); }
+  .hub .lead { max-width: 56ch; color: var(--ink-soft); }
+  .ver { margin-top: var(--sp-9); padding-top: var(--sp-6); border-top: 1px solid var(--line); }
+  .ver > header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-5); flex-wrap: wrap; }
+  .ver h2 { font-size: var(--t-h3); letter-spacing: var(--track-tight); }
+  .ver h2 em { font-style: normal; color: var(--accent); font-family: var(--font-mono); font-size: .72em; margin-right: .6em; }
+  .ver .pick { font-size: var(--t-sm); color: var(--ink-dim); }
+  .ver dl { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: var(--sp-4) var(--sp-5); margin-top: var(--sp-6); }
+  .ver dt { font-size: var(--t-xs); letter-spacing: var(--track-label); color: var(--ink-dim); text-transform: uppercase; padding-top: 3px; }
+  .ver dd { margin: 0; color: var(--ink-soft); font-size: 14.5px; line-height: 1.75; }
+  .ver dd b { color: var(--ink); font-weight: 550; }
+  .shots { display: flex; gap: var(--sp-4); margin-top: var(--sp-6); overflow-x: auto; padding-bottom: var(--sp-3); }
+  .shots a { flex: 0 0 auto; }
+  .shots img { height: 190px; width: auto; border-radius: var(--r-1); border: 1px solid var(--line); box-shadow: var(--e2); }
+  .preview { margin: var(--sp-6) 0 0; }
+  .preview img {
+    width: 100%; border-radius: var(--r-2); border: 1px solid var(--line-strong);
+    box-shadow: var(--e3); background: var(--surface);
+  }
+  .preview figcaption {
+    display: flex; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap;
+    margin-top: var(--sp-3); font-size: var(--t-sm); color: var(--ink-dim);
+  }
+  .preview figcaption a { color: var(--ink-soft); border-bottom: 1px solid rgba(169,188,176,.34); }
+  .preview figcaption a:hover { color: var(--accent); border-color: var(--accent); }
+  .open { display: inline-flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-6); }
+  .foot { margin-top: var(--sp-10); padding-top: var(--sp-6); border-top: 1px solid var(--line); color: var(--ink-dim); font-size: var(--t-sm); max-width: 62ch; }
+  code { font-family: var(--font-mono); font-size: .9em; color: var(--accent); background: rgba(146,239,171,.08); padding: 2px 6px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="hub">
+  <h1>三个方向 · 初版</h1>
+  <p class="lead">三份完整页面，同一份真实内容与数据，同一套无障碍基线。<strong>差异只在设计与叙事本身</strong>，因此可以直接对比。</p>
+
+  <section class="ver">
+    <header>
+      <h2><em>A</em>章制编辑体 + 一个峰值</h2>
+      <span class="pick">不用任何库，靠对比与克制</span>
+    </header>
+    <dl>
+      <dt>页面语法</dt><dd>章制编辑体。整页从深色硬切到一屏骨白，用<b>一次明暗切换</b>制造起伏。</dd>
+      <dt>峰值</dt><dd>滚到代表作时底色硬切为骨白，<b>1.6M 从 0 滚上去</b>，主画面自下往上揭开。峰值前留一段近乎空白的静默。</dd>
+      <dt>动效</dt><dd>滚动揭示（标题遮罩擦除 / 段落逐层）、数字计数、章节进度、作品切换用 View Transitions。</dd>
+      <dt>成本风险</dt><dd>零新增依赖，无性能风险。辨识度中高，最稳。</dd>
+    </dl>
+    <figure class="preview">
+      <img src="shots/A-首屏.png" alt="方向 A 首屏截图" width="1440" height="900">
+      <figcaption><span>首屏 · 证据条在第一时间出现</span><a href="shots/整页-A-章制编辑体.png" target="_blank">看整页截图 ↗</a></figcaption>
+    </figure>
+    <a class="btn open" href="a/index.html">打开方向 A</a>
+  </section>
+
+  <section class="ver">
+    <header>
+      <h2><em>B</em>沉浸叙事</h2>
+      <span class="pick">一层手写 canvas，滚动即时间轴</span>
+    </header>
+    <dl>
+      <dt>页面语法</dt><dd>电影式连续世界。指针与滚动速度共同驱动同一个粒子场，页面像被驾驶而不是被播放。</dd>
+      <dt>峰值</dt><dd>滚到中段时粒子向中心收拢成一个环，<b>滚动打钉的三段论证</b>依次亮起，然后作品图从内向外展开。</dd>
+      <dt>动效</dt><dd>粒子场（响应指针 + 滚动速度）、逐字浮出、打钉舞台、图框 expand、速度塑造强度。</dd>
+      <dt>成本风险</dt><dd>零依赖但计算量最大；低端机与降级路径需要单独处理。辨识度最高。</dd>
+    </dl>
+    <figure class="preview">
+      <img src="shots/B-峰值.png" alt="方向 B 峰值截图：粒子收拢成环，1.6M 在环中心计数" width="1440" height="900">
+      <figcaption><span>峰值 · 粒子收拢成环，1.6M 在环中心计数</span><a href="shots/整页-B-沉浸叙事.png" target="_blank">看整页截图 ↗</a></figcaption>
+    </figure>
+    <a class="btn open" href="b/index.html">打开方向 B</a>
+  </section>
+
+  <section class="ver">
+    <header>
+      <h2><em>C</em>证据仪表盘</h2>
+      <span class="pick">把作品当数据读</span>
+    </header>
+    <dl>
+      <dt>页面语法</dt><dd>节奏切分 + 数据可视化。作品不是被陈列，是被测量。</dd>
+      <dt>峰值</dt><dd>六条作品的<b>播放量 × 互动率散点图</b>，可点可键盘选中，联动详情；旁边直接给结论。</dd>
+      <dt>动效</dt><dd>点从轴线上长出、条目条宽生长、数字计数、hover 联动高亮。</dd>
+      <dt>成本风险</dt><dd>零依赖，但信息设计工作量大于动效。人设最突出，别人抄不走。</dd>
+    </dl>
+    <figure class="preview">
+      <img src="shots/C-主图表.png" alt="方向 C 主图表截图：播放量与互动率散点图" width="1440" height="900">
+      <figcaption><span>峰值 · 播放量 × 互动率，点可点击也可键盘选中</span><a href="shots/整页-C-证据仪表盘.png" target="_blank">看整页截图 ↗</a></figcaption>
+    </figure>
+    <a class="btn open" href="c/index.html">打开方向 C</a>
+  </section>
+
+  <p class="foot">
+    三份页面共用 <code>versions/shared/</code> 下的令牌层、内容数据与动效原语；
+    内容全部来自当事人原始记录，未新增任何未经核实的数字。<br>
+    看细节时建议：滚到峰值那一屏停下，再慢速滚一次，看动效是怎么跟手的。
+    加 <code>?flat=1</code> 可把页面压到最终态，用于截图或导出 PDF。
+  </p>
+</div>
+<script src="shared/motion.js"></script>
+</body>
+</html>

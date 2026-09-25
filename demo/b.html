@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 B · 沉浸叙事（指针与滚动驱动的连续世界）</title>
+<style>
+@import url("../assets/fonts/lxgw-wenkai-tc/font.css");
+@font-face{font-family:"PX Serif";src:url("../assets/fonts/noto-serif-sc-600-zhou-xingyun.woff2") format("woff2");font-display:swap;unicode-range:U+5468,U+6027,U+8FD0;}
+:root{
+  color-scheme:dark;
+  --canvas:#060A08; --ink:#EFF5F1; --ink-soft:#9FB3A6; --accent:#92EFAB;
+  --ease:cubic-bezier(.23,1,.32,1);
+  font-family:"Portfolio LXGW WenKai","PingFang SC",system-ui,sans-serif;font-size:16px;line-height:1.7;
+  background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--canvas);color:var(--ink);overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+::selection{background:var(--accent);color:#060A08}
+
+#field{position:fixed;inset:0;z-index:0;display:block}
+.grain{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 40%,transparent 40%,rgba(6,10,8,.82) 100%)}
+main{position:relative;z-index:1}
+.wrap{width:min(1120px,100% - 2*clamp(24px,5vw,64px));margin-inline:auto}
+
+/* ── HERO ── */
+.hero{min-height:100svh;display:grid;align-items:center;text-align:center}
+.hero-inner{padding-block:clamp(96px,14vh,160px)}
+.hero h1{margin:0;font-family:"PX Serif","Songti SC",serif;font-size:clamp(52px,9.5vw,132px);
+  line-height:1;letter-spacing:.005em}
+.hero h1 .ch{display:inline-block;opacity:0;transform:translateY(.42em) scale(.96);
+  transition:opacity .8s var(--ease),transform 1.05s var(--ease);
+  transition-delay:calc(var(--i) * 62ms)}
+.hero.in h1 .ch{opacity:1;transform:none}
+.hero .line{margin:clamp(20px,3vh,34px) auto 0;max-width:30ch;font-size:clamp(16px,1.6vw,20px);
+  color:var(--ink-soft);text-wrap:balance;opacity:0;transform:translateY(10px);
+  transition:opacity .9s var(--ease) .55s,transform .9s var(--ease) .55s}
+.hero.in .line{opacity:1;transform:none}
+.hero .meta{margin-top:clamp(28px,5vh,48px);display:flex;justify-content:center;gap:clamp(20px,4vw,56px);
+  flex-wrap:wrap;opacity:0;transform:translateY(10px);
+  transition:opacity .9s var(--ease) .75s,transform .9s var(--ease) .75s}
+.hero.in .meta{opacity:1;transform:none}
+.hero .meta b{display:block;font-size:clamp(20px,2vw,26px);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hero .meta span{display:block;margin-top:2px;font-size:12.5px;color:#7B8E84}
+
+/* ── PINNED ACT ── the scroll is the timeline */
+.act{height:260vh;position:relative}
+.act-stage{position:sticky;top:0;height:100svh;display:grid;place-items:center;text-align:center}
+.act-stage .inner{padding-inline:clamp(24px,5vw,64px);max-width:56ch}
+.act .step{position:absolute;inset:0;display:grid;place-items:center;padding-inline:clamp(24px,5vw,64px);
+  opacity:0;transition:opacity .5s var(--ease);pointer-events:none}
+.act .step.on{opacity:1}
+.act .step p{margin:0;font-size:clamp(20px,2.9vw,40px);line-height:1.32;letter-spacing:-.02em;font-weight:400}
+.act .step .sub{margin-top:clamp(16px,2.5vh,26px);font-size:15px;color:var(--ink-soft);letter-spacing:normal;line-height:1.8}
+.act .stage-label{position:absolute;bottom:clamp(24px,5vh,52px);left:0;right:0;text-align:center;
+  font-size:12px;letter-spacing:.14em;color:#6E8177;text-transform:uppercase}
+
+/* ── REVEAL ARTEFACT ── */
+.artefact{position:relative;min-height:100svh;display:grid;place-items:center}
+.artefact .frame{position:relative;width:min(940px,100% - 2*clamp(24px,5vw,64px));border-radius:14px;overflow:hidden;
+  box-shadow:0 60px 120px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.08);
+  clip-path:inset(14% 22% 14% 22% round 14px);
+  transition:clip-path 1.25s var(--ease)}
+.artefact.in .frame{clip-path:inset(0 0 0 0 round 14px)}
+.artefact img{width:100%;aspect-ratio:16/10;object-fit:cover}
+.artefact .cap{margin-top:clamp(20px,4vh,36px);text-align:center;font-size:14px;color:var(--ink-soft)}
+
+/* ── CLOSE ── */
+.close{min-height:82svh;display:grid;place-items:center;text-align:center}
+.close .inner{padding-block:clamp(80px,12vh,140px)}
+.close h2{margin:0 auto;max-width:24ch;font-size:clamp(24px,3.2vw,42px);line-height:1.24;letter-spacing:-.025em}
+.close .links{margin-top:clamp(32px,6vh,64px);display:flex;gap:clamp(24px,5vw,64px);justify-content:center;flex-wrap:wrap}
+.close a{font-size:clamp(16px,1.6vw,20px);border-bottom:1px solid rgba(159,179,166,.4);padding-bottom:3px;
+  transition:border-color .2s var(--ease),color .2s var(--ease)}
+.close a:hover{border-color:var(--accent);color:var(--accent)}
+.close .note{margin-top:clamp(28px,5vh,48px);font-size:13.5px;color:#7B8E84}
+
+@media (max-width:760px){
+  .act{height:210vh}
+  .hero .meta{gap:20px 28px}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero h1 .ch{opacity:1;transform:none;transition:none}
+  .hero .line,.hero .meta{opacity:1;transform:none;transition:none}
+  .artefact .frame{clip-path:none;transition:none}
+  .act{height:auto}
+  .act-stage{position:static;height:auto;padding-block:12vh}
+  .act .step{position:static;opacity:1;margin-bottom:10vh}
+  .act .stage-label{position:static;margin-top:24px}
+}
+html.flat .hero h1 .ch{opacity:1!important;transform:none!important}
+html.flat .hero .line,html.flat .hero .meta{opacity:1!important;transform:none!important}
+html.flat .artefact .frame{clip-path:none!important}
+html.flat .act .step:first-of-type{opacity:1!important}
+html.flat .act{height:170vh}
+</style>
+</head>
+<body>
+<canvas id="field" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<main>
+  <header class="hero" id="hero">
+    <div class="wrap hero-inner">
+      <h1 data-split>周性运</h1>
+      <p class="line">内容策划与海外社媒运营。做内容是主线，折腾 AI 是习惯。</p>
+      <div class="meta">
+        <div><b data-count="1.6" data-suffix="M">0</b><span>单条视频播放</span></div>
+        <div><b data-count="571226" data-group="1">0</b><span>单篇文章阅读</span></div>
+        <div><b data-count="300" data-suffix="+">0</b><span>小游戏玩家</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="act" id="act">
+    <div class="act-stage">
+      <div class="step" data-step="0">
+        <div class="inner">
+          <p>一条视频跑出 160 万播放，不是运气。</p>
+          <p class="sub">决赛周的热点、球员之间的真实对抗、游戏里能对上的角色关系。三件事要在同一周里对齐。</p>
+        </div>
+      </div>
+      <div class="step" data-step="1">
+        <div class="inner">
+          <p>节点、选题、脚本、素材、审核、发布、复盘。每一步都有人做，我负责让它串起来。</p>
+        </div>
+      </div>
+      <div class="step" data-step="2">
+        <div class="inner">
+          <p>然后我把这套流程交给 AI 跑了一遍，自己做了一个羽毛球小游戏。</p>
+          <p class="sub">上线一周，300 多个玩家。</p>
+        </div>
+      </div>
+      <span class="stage-label" aria-hidden="true">滚动</span>
+    </div>
+  </section>
+
+  <section class="artefact" id="artefact">
+    <div>
+      <figure class="frame"><img src="../assets/works_tt5_03.png" alt="三分王与街球传奇 1v1 视频画面"></figure>
+      <p class="cap">三分王与街球传奇 1v1 · TikTok · 播放 1.6M · 数据核实 2026-09-09</p>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="wrap inner">
+      <h2>想聊内容、社媒或者岗位机会，都可以直接找我。</h2>
+      <div class="links">
+        <a href="mailto:2228144556@qq.com">2228144556@qq.com</a>
+        <a href="https://github.com/zcinta0514" target="_blank" rel="noopener">GitHub @zcinta0514</a>
+      </div>
+      <p class="note">周性运 · 2027 届硕士 · 上海师范大学 应用经济学</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const flat = location.search.includes('flat') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (flat) document.documentElement.classList.add('flat');
+
+  /* ── split the name into characters ── */
+  const h1 = document.querySelector('[data-split]');
+  const text = h1.textContent;
+  h1.textContent = '';
+  [...text].forEach((ch, i) => {
+    const s = document.createElement('span');
+    s.className = 'ch'; s.textContent = ch;
+    s.style.setProperty('--i', i);
+    h1.appendChild(s);
+  });
+  requestAnimationFrame(() => document.getElementById('hero').classList.add('in'));
+  if (flat) document.getElementById('hero').classList.add('in');
+
+  /* ── the field: a pointer- and scroll-reactive particle world ──
+     Hand-written canvas 2D. No WebGL, no library, ~700 particles.       */
+  const cv = document.getElementById('field');
+  const ctx = cv.getContext('2d', { alpha: true });
+  let W = 0, H = 0, DPR = 1;
+  const N = matchMedia('(max-width:760px)').matches ? 380 : 720;
+  const P = [];
+  let mx = .5, my = .42, tx = .5, ty = .42;   // pointer target / eased
+  let scrollP = 0, smoothP = 0, vel = 0, lastY = 0;
+
+  function resize() {
+    DPR = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  function seed() {
+    P.length = 0;
+    for (let i = 0; i < N; i++) {
+      P.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: 0, vy: 0,
+        r: .6 + Math.random() * 1.5,
+        a: .18 + Math.random() * .5,
+        ring: i / N,                       // where it settles when the field converges
+        t: Math.random() * 6.28,
+      });
+    }
+  }
+  resize(); seed();
+  addEventListener('resize', () => { resize(); seed(); });
+
+  if (!matchMedia('(pointer:coarse)').matches) {
+    addEventListener('pointermove', e => { tx = e.clientX / innerWidth; ty = e.clientY / innerHeight; }, { passive: true });
+  }
+
+  // cheap field function: layered sines, no noise table needed
+  function flow(x, y, t) {
+    const s = .0016;
+    return (
+      Math.sin(x * s + t * .55) * Math.cos(y * s * 1.17 - t * .4) * 1.5 +
+      Math.sin((x + y) * s * .63 + t * .23) * .9
+    );
+  }
+
+  function frame(now) {
+    const t = now * .001;
+    mx += (tx - mx) * .06; my += (ty - my) * .06;
+    smoothP += (scrollP - smoothP) * .06;
+
+    // scroll velocity feeds the field's intensity
+    const y = scrollY;
+    vel = vel * .88 + Math.abs(y - lastY) * .12; lastY = y;
+    const energy = Math.min(1, vel / 26);
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+
+    const cx = W * (.5 + (mx - .5) * .16);      // the world leans when the pointer moves
+    const cy = H * (.46 + (my - .46) * .16);
+    const converge = Math.max(0, Math.min(1, (smoothP - .22) / .5)); // 0 → free drift, 1 → gathered
+
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i];
+      const ang = flow(p.x, p.y, t);
+      const sp = .22 + energy * .5;
+      p.vx += Math.cos(ang) * sp * .1;
+      p.vy += Math.sin(ang) * sp * .1;
+
+      // pointer parallax: everything drifts against the cursor
+      const dx = p.x - cx, dy = p.y - cy;
+      const d = Math.hypot(dx, dy) || 1;
+      p.vx += (dx / d) * .028 * (1 - Math.min(1, d / 700));
+      p.vy += (dy / d) * .028 * (1 - Math.min(1, d / 700));
+
+      if (converge > 0) {
+        // gather into a slow ring, then hold
+        const a = p.ring * Math.PI * 2 + t * .16;
+        const R = Math.min(W, H) * (.30 + .07 * Math.sin(p.ring * 6.28 + t * .5));
+        const gx = cx + Math.cos(a) * R * .92;
+        const gy = cy + Math.sin(a) * R * .60;
+        p.vx += (gx - p.x) * .0055 * converge;
+        p.vy += (gy - p.y) * .0055 * converge;
+      }
+
+      p.vx *= .93; p.vy *= .93;
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -40) p.x = W + 40; if (p.x > W + 40) p.x = -40;
+      if (p.y < -40) p.y = H + 40; if (p.y > H + 40) p.y = -40;
+
+      const near = 1 - Math.min(1, d / 420);
+      const alpha = Math.min(.95, p.a * (.5 + near * .9 + energy * .35));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (1 + near * .9), 0, 6.2832);
+      ctx.fillStyle = `rgba(146,239,171,${alpha * .5})`;
+      ctx.fill();
+    }
+
+    // one soft core light so the field has a source
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * .5);
+    g.addColorStop(0, `rgba(146,239,171,${.05 + energy * .05})`);
+    g.addColorStop(1, 'rgba(146,239,171,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  /* ── the pinned act: three steps, scroll is the timeline ── */
+  const act = document.getElementById('act');
+  const steps = [...act.querySelectorAll('.step')];
+  function onAct() {
+    const r = act.getBoundingClientRect();
+    const total = r.height - innerHeight;
+    const p = total > 0 ? Math.max(0, Math.min(1, -r.top / total)) : 0;
+    scrollP = p;
+    if (flat) { steps.forEach((s, i) => s.classList.toggle('on', i === 0)); return; }
+    const idx = Math.min(steps.length - 1, Math.floor(p * steps.length * .999));
+    steps.forEach((s, i) => s.classList.toggle('on', i === idx));
+  }
+
+  /* ── artefact reveal ── */
+  const art = document.getElementById('artefact');
+  const aio = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { art.classList.add('in'); aio.unobserve(art); }
+  }), { rootMargin: '0px 0px -18% 0px' });
+  aio.observe(art);
+
+  /* ── counters ── */
+  function count(el, to, dec, suffix) {
+    const t0 = performance.now(), dur = 1400;
+    const done = () => { el.textContent = (dec ? to.toFixed(dec) : Math.round(to).toLocaleString('en-US')) + (suffix || ''); };
+    if (flat) { done(); return; }
+    const tick = now => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), v = to * e;
+      el.textContent = (dec ? v.toFixed(dec) : Math.round(v).toLocaleString('en-US')) + (suffix || '');
+      p < 1 ? requestAnimationFrame(tick) : done();
+    };
+    requestAnimationFrame(tick);
+  }
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const v = parseFloat(el.dataset.count);
+    count(el, v, el.dataset.count.includes('.') ? 1 : 0, el.dataset.suffix || '');
+  });
+
+  let q = false;
+  function onScroll() {
+    if (q) return; q = true;
+    requestAnimationFrame(() => { q = false; onAct(); });
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>
