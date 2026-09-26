@@ -8,7 +8,8 @@
    · 彩色只留给作品：页面本身只有纸色、近黑、暖灰、砖红强调色
    ========================================================================== */
 
-/* 首页姓名字体：Noto Serif SC 600 的三字子集（周性运），内嵌为 data URI。
+/* 首页姓名字体：霞鹜文楷 Medium（LXGW WenKai Medium）的三字子集（周性运），内嵌为 data URI。
+   已核实：解出的 woff2 name 表就是 LXGWWenKai-Medium。（旧站用的是 Noto Serif SC 600，别搞混）
    内嵌而不是外链，是因为部分浏览器在 file:// 下会拦跨源字体请求。 */
 @font-face{
   font-family:"Site Name";
@@ -176,8 +177,8 @@ html.js body.loaded .hero-name .mask-i{transform:none}
 }
 .hero-role-main{font-size:var(--f-sm);line-height:1.45;color:var(--ink-2)}
 .hero-role-sub{font-size:var(--f-xs);line-height:1.6;color:var(--ink-2);letter-spacing:.02em}
-html.js .hero-role,html.js .hero-proof{opacity:0}
-html.js .hero-proof{transform:translateY(10px)}
+html.js .hero-role,html.js .hero-proof,html.js .hero-peak{opacity:0}
+html.js .hero-proof,html.js .hero-peak{transform:translateY(10px)}
 html.js body.loaded .hero-role{opacity:1;transition:opacity var(--t-card) var(--ease-out) 80ms}
 .hero-stage{position:absolute;inset:0;z-index:2;pointer-events:none}
 
@@ -219,7 +220,22 @@ html.js body.loaded .figure{opacity:1}
   font-size:var(--f-sm);letter-spacing:.01em;color:var(--ink-2);
 }
 .hero-proof b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* 峰值方案 B（?peak=hero）：1.6M 从证据条里拿出来，升为首屏唯一的巨数。
+   用 --f-xl 一档（与首屏名字、邮箱同级），此时证据条只剩其余三个数字，
+   全页不会再出现第二个这么大体量的东西——这就是“唯一的峰值”。 */
+.hero-peak{
+  position:absolute;left:var(--pad);bottom:clamp(56px,8.6svh,88px);
+  z-index:3;margin:0;
+  display:flex;align-items:baseline;gap:clamp(10px,1.1vw,16px);flex-wrap:wrap;
+  font-size:var(--f-xl);font-weight:400;line-height:1;letter-spacing:-.045em;color:var(--ink);
+}
+.hero-peak b{font-weight:500;font-variant-numeric:tabular-nums}
+.hero-peak span{font-size:var(--f-xs);font-weight:400;letter-spacing:.02em;color:var(--ink-2)}
+.hero-peak[hidden]{display:none}
 html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(--t-card) var(--ease-out) 160ms,transform var(--t-card) var(--ease-out) 160ms}
+/* 峰值数字比证据条晚一拍出现，让“名字 → 形象 → 巨数 → 证据条”分四拍入场 */
+html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(--t-hero) var(--ease-out) 240ms,transform var(--t-hero) var(--ease-out) 240ms}
 
 /* ------------------------------------------------------------ 6 章节外壳 */
 .sec{
@@ -232,34 +248,247 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
   margin-bottom:clamp(26px,4.2svh,46px);   /* 标题上方留白 > 下方留白 */
 }
 .sec-h .mask-i{text-box:trim-both cap alphabetic}
+/* 章节导语：紧贴标题，交代这一节要怎么读。四条长度刻意不同（见 content.js），
+   避免四节又长成同一套模具。它属于标题块，所以标题上方留白仍大于下方。 */
+.sec-lead{
+  font-size:var(--f-sm);line-height:1.7;color:var(--ink-2);
+  max-width:62ch;text-wrap:pretty;
+  margin:calc(-1 * clamp(10px,1.8svh,22px)) 0 clamp(26px,4.2svh,46px);
+}
 .sub-h{
   font-size:var(--f-xs);font-weight:400;letter-spacing:.02em;color:var(--ink-2);
   margin:clamp(38px,6svh,62px) 0 14px;padding-top:16px;border-top:1px solid var(--rule);
 }
 
 /* ------------------------------------------------------------ 7 作品索引 */
-.index{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:var(--gap);
-  --colw:calc((100% - 2 * var(--gap)) / 3);   /* 展开时左栏宽度＝收起时的列宽，展开前后图片尺寸完全一致 */
+/* ------------------------------------------------- 7 作品：按能力分块 */
+/* 不再是“一个大网格装十六件”。四块 = 四种能力，每块有自己的版式、自己的 meta 位置、
+   自己的揭示方向。骨架借自 obys 作品页：旁边一列固定的元信息，媒体序列尺寸不一，
+   文字写进留白，不堆在同一套卡片里。
+     · 短视频  上置 meta 横条 + 通栏主片 + 五格片单 · 片单从左横向擦入
+     · 视觉创意 meta 填进海报墙最后一格              · 逐张自下揭开
+     · 内容规划 左参数 + 右三步流程                   · 细线从左长出、步骤随后上升
+     · 长文    meta 收在末尾，正文只有两行大字          · 不动（克制就是它的区别） */
+.blocks{display:block}
+
+/* ---- 块间距。块与块之间比块内松，前一块的尾巴不会和后一块的头黏在一起 ---- */
+.blk{padding-top:clamp(52px,7.4svh,92px)}
+.blk:first-child{padding-top:0}
+
+/* ---- 块体内网格。--colw = 单格宽，展开时左栏直接用它 → 图片尺寸前后完全一致 ---- */
+.blk-body{display:grid;gap:var(--gap)}
+.blk--video .blk-body{grid-template-columns:repeat(5,1fr);--colw:calc((100% - 4 * var(--gap)) / 5)}
+.blk--poster .blk-body{grid-template-columns:repeat(4,1fr);--colw:calc((100% - 3 * var(--gap)) / 4)}
+
+/* ---- 通栏主片：块 1 的峰值。图与说明并置，why 全文放在正面 ---- */
+/* ---- 块 1 的「带架」：一台翻阅装置，不是一排卡片 ----
+     台面放当前那盘的封面，切换时封面绕 Y 轴翻过去（翻带）；
+     下面一排磁带脊背可以点、可以按左右键，当前那盘抬起来。 */
+/* ---- 块 1 的「转轮」：一台轮回式的翻阅装置，不是一排卡片 ----
+     六盘磁带排成一个圆环（6 × 60° = 一圈），正面那盘朝着你，
+     两侧各斜着一盘、更远的转到背面就看不见了；点下一盘，整圈转 60°。 */
+.viewer{--rw:340px;--rh:425px;display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,1fr);gap:clamp(24px,3.4vw,60px);align-items:center}
+.viewer--book{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.viewer--peel{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
+.ring{
+  position:relative;height:calc(var(--rh) * 1.32);
+  display:grid;place-items:center;
+  perspective:2000px;                      /* 透视越大，圆的挤压越轻 */
 }
-.glabel{
-  grid-column:1/-1;
-  display:flex;justify-content:space-between;align-items:baseline;gap:16px;
-  margin-top:clamp(22px,3.4svh,40px);padding-top:14px;
-  border-top:1px solid var(--rule);
-  font-size:var(--f-xs);letter-spacing:.02em;
+.ring-in{
+  position:relative;width:var(--rw);height:var(--rh);
+  transform-style:preserve-3d;
+  transition:transform var(--t-card) var(--ease-expo);   /* 整圈转动 = 轮回的动效本身 */
 }
-.glabel:first-child{margin-top:0}
-.glabel h3{font-size:var(--f-xs);font-weight:500;letter-spacing:.02em}
-.glabel span{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.ring-i{
+  position:absolute;inset:0;margin:0;
+  backface-visibility:hidden;              /* 转到背面的自动看不见 */
+  opacity:.34;
+  transition:opacity var(--t-card) var(--ease-out);
+}
+.ring-i img{
+  width:100%;height:100%;object-fit:cover;
+  filter:grayscale(1) contrast(.85);
+  transition:filter 400ms var(--ease-out);
+}
+.ring-i.is-on{opacity:1}
+.ring-i.is-on img{filter:grayscale(1) contrast(1)}
+.ring-i.is-on:hover img{filter:none}       /* 彩色仍然只留给“你正在看的那一件” */
+
+/* ---- 舞台二：翻书（视觉创意）---- */
+/* 两层就够：.book-under 放“下一页”，.book-leaf 绕书脊转出去。
+   过 90° 后背面不可见，下面那页就露出来了——这就是翻页。 */
+.book{position:relative;width:min(100%,460px);aspect-ratio:4/5;perspective:2200px;justify-self:start}
+.book-page{position:absolute;inset:0;margin:0;overflow:hidden}
+.book-page img{display:block;width:100%;height:100%;object-fit:cover}
+.book-under img{filter:grayscale(1) contrast(.9)}
+.book-leaf{
+  transform-origin:0 50%;                  /* 书脊在左边 */
+  backface-visibility:hidden;
+  filter:grayscale(1) contrast(.9);
+  box-shadow:1px 0 0 var(--rule);
+  transition:transform var(--t-hero) var(--ease-expo),filter 400ms var(--ease-out);
+}
+.book-leaf:hover{filter:none}
+.book-leaf.is-flipping{transform:rotateY(-172deg)}
+/* 右侧一叠纸边：暗示还有更多页 */
+.book-edges{position:absolute;top:8px;bottom:8px;right:-6px;width:6px;display:grid;gap:2px}
+.book-edge{background:var(--rule);opacity:.55}
+.vpanel{transition:opacity var(--t-ui) var(--ease-out)}
+.vpanel.is-turning{opacity:0}
+.v-n{display:flex;align-items:baseline;gap:clamp(14px,2vw,26px);font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3)}
+.v-count{font-variant-numeric:tabular-nums}
+.v-nav{display:flex;gap:clamp(10px,1.4vw,18px)}
+.v-btn{
+  border:0;padding:2px 0;background:none;cursor:pointer;
+  font:inherit;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
+  transition:color var(--t-hover) var(--ease-out);
+}
+.v-btn:hover{color:var(--ink)}
+.v-btn:focus-visible{outline:none;color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:4px}
+/* 一圈数字点：告诉你“一共几个、现在第几个”，但内容不摊开 */
+.v-dots{display:flex;gap:2px;margin-top:clamp(14px,2svh,20px)}
+.v-dot{
+  width:26px;height:26px;padding:0;border:1px solid var(--rule);background:none;cursor:pointer;
+  font:inherit;font-size:var(--f-xs);color:var(--ink-3);font-variant-numeric:tabular-nums;
+  transition:color var(--t-hover) var(--ease-out),border-color var(--t-hover) var(--ease-out),background-color var(--t-hover) var(--ease-out);
+}
+.v-dot:hover{color:var(--ink);border-color:var(--ink-3)}
+.v-dot.is-on{color:var(--paper);background:var(--ink);border-color:var(--ink)}
+.v-dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.v-title{margin:10px 0 0;font-size:var(--f-md);font-weight:500;line-height:1.14;letter-spacing:-.02em}
+.v-face{margin-top:clamp(12px,1.8svh,18px);font-size:var(--f-sm);line-height:1.7;color:var(--ink-2);max-width:44ch}
+.v-meta{margin:clamp(16px,2.4svh,26px) 0 0;font-size:var(--f-md);letter-spacing:-.01em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.v-meta b{font-weight:400;color:var(--ink)}
+.v-sub{margin:8px 0 0;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.v-sub b{font-weight:400;color:var(--ink)}
+.v-why{margin-top:clamp(14px,2svh,20px);font-size:var(--f-sm);line-height:1.75;color:var(--ink-2);max-width:46ch}
+.v-link{display:inline-block;margin-top:clamp(14px,2svh,22px)}
+
+/* ---- 海报墙最后一格：把“目标 / 我负责的 / 怎么实现的”写进留白。
+        8 格 = 7 张海报 + 1 格文字，网格正好铺满，不留空洞。 ---- */
+.blk-meta--incell{align-self:start;padding-top:2px}
+.blk-meta--incell .blk-meta{display:block}
+.blk-meta--incell .blk-row{margin-bottom:12px}
+.blk-meta--incell dd{font-size:var(--f-xs);line-height:1.65}
+.blk-meta--incell .blk-note{margin-top:14px}
+
+/* ---- 块 3：不是作品网格，是“我怎么干的”。一台抽屉柜：三个把手，拉出一个看一步 ---- */
+.blk--flow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(28px,4.4vw,76px);align-items:start}
+.blk--flow .blk-meta{display:block}
+.cabinet{display:grid}
+.cab-handles{list-style:none;margin:0 0 clamp(14px,2.2svh,22px);padding:0}
+.cab-handle{
+  display:flex;align-items:baseline;gap:clamp(14px,2vw,26px);width:100%;
+  padding:clamp(13px,1.9svh,19px) 0;border:0;border-top:1px solid var(--rule);
+  background:none;cursor:pointer;text-align:left;
+  font:inherit;font-size:var(--f-sm);color:var(--ink-2);
+  transition:color var(--t-hover) var(--ease-out);
+}
+.cab-handle:hover{color:var(--ink)}
+.cab-handle.is-on{color:var(--ink)}
+.cab-handle.is-on .cab-n{color:var(--accent)}
+.cab-handle:focus-visible{outline:none;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:4px}
+.cab-n{font-weight:400;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.cab-name{font-weight:500}
+/* 抽屉口：高度固定（取最高那一页），里面靠 translateX 滑，不动高度就不会抽动整页 */
+.cab-hop{overflow:hidden;border-bottom:1px solid var(--rule)}
+.cab-drawer{display:flex;align-items:stretch;transition:transform var(--t-card) var(--ease-expo)}
+.cab-sheet{flex:0 0 100%;padding:clamp(18px,2.6svh,28px) 0 clamp(22px,3svh,32px)}
+.cab-step{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.cab-h{margin:9px 0 0;font-size:var(--f-sm);font-weight:500}
+.cab-text{margin-top:10px;font-size:var(--f-sm);line-height:1.7;color:var(--ink-2);max-width:52ch}
+.cab-fig{margin:clamp(16px,2.4svh,24px) 0 0}
+.cab-fig img{width:100%;height:auto;filter:grayscale(1) contrast(.95);opacity:.82}
+.cab-sheet .link{display:inline-block;margin-top:14px}
+.blk--flow .pr-cap{margin-top:10px;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3)}
+
+/* ---- 块 4：报纸版面。一次只掀开一版（见 stagePeel），靠字撑不靠图 ---- */
+.peel{position:relative;width:min(100%,560px);aspect-ratio:5/4;perspective:2400px;justify-self:start}
+.peel-page{
+  position:absolute;inset:0;margin:0;overflow:hidden;
+  padding:clamp(20px,2.8vw,38px);
+  background:var(--paper-2);border-top:2px solid var(--ink);
+}
+.peel-page{transform-origin:100% 100%}
+.peel-leaf{backface-visibility:hidden;transition:transform var(--t-hero) var(--ease-expo)}
+.peel-leaf.is-peeling{transform:rotate3d(-1,1,0,152deg)}   /* 从右下角掀开 */
+.peel-top{
+  display:flex;justify-content:space-between;gap:16px;
+  padding-bottom:10px;border-bottom:1px solid var(--rule);
+  font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
+}
+.peel-head{margin:clamp(16px,2.4svh,26px) 0 0;font-size:var(--f-md);font-weight:500;line-height:1.22;letter-spacing:-.02em}
+.peel-face{margin-top:clamp(12px,1.8svh,18px);font-size:var(--f-sm);line-height:1.7;color:var(--ink-2);max-width:36ch}
+.peel-meta{margin:clamp(14px,2svh,20px) 0 0;font-size:var(--f-sm);letter-spacing:.01em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.peel-meta b{font-weight:400;color:var(--ink)}
+
+/* ---- 块 4 尾巴：目标 / 我负责的 / 怎么实现的 ---- */
+.art-meta-block{margin-top:clamp(22px,3.2svh,36px);max-width:64ch}
+.art-meta-block .blk-meta{display:block}
+
+/* ---- 每块不同的揭示。同一个“入场只播一次”的原语，换方向、换介质、换错峰，
+        就是四种不同的块——而不是四块同样的卡片淡入。
+        【重要】裁切只能下在卡片内部的 .card-media 上。被 IntersectionObserver 观察的
+        那个元素一旦被 clip-path 裁到 0 面积，intersectionRatio 恒为 0，它永远等不到自己的
+        揭示回调（PROGRESS.md 里记过这个坑）。所以被观察的 .card / .viewer 保持完整面积。 ---- */
+/* 块 1 转轮：入场走通用淡入上浮（.viewer 自己就是 data-rv），
+   圆盘内三盘之间的明暗切换全交给 .is-on。
+   （不要给 .ring-in 加入场旋转——它的 transform 是 deckPaint 写的内联样式，会直接被盖掉） */
+html.js .blk--video .viewer .ring-i{opacity:0}
+html.js .blk--video .viewer.in .ring-i{opacity:.34}
+html.js .blk--video .viewer.in .ring-i.is-on{opacity:1}
+/* 块 2 翻书：封面自下掀开（裁的是 .book-under，不是被观察的 .viewer） */
+html.js .viewer--book .book-under{clip-path:inset(100% 0 0 0)}
+html.js .viewer--book.in .book-under{clip-path:inset(0);transition:clip-path var(--t-hero) var(--ease-expo) 80ms}
+/* 块 3 抽屉：把手依次推入，抽屉里的那一页随后淡入（--n 由 main.js 写） */
+html.js .blk--flow .cab-handle{opacity:0;transform:translateX(-12px)}
+html.js .blk--flow .cabinet.in .cab-handle{opacity:1;transform:none}
+html.js .blk--flow .cab-handle{transition:opacity var(--t-card) var(--ease-out) calc(var(--n,0)*90ms + 80ms),transform var(--t-card) var(--ease-out) calc(var(--n,0)*90ms + 80ms),color var(--t-hover) var(--ease-out)}
+html.js .blk--flow .cab-sheet{opacity:0}
+html.js .blk--flow .cabinet.in .cab-sheet{opacity:1;transition:opacity var(--t-hero) var(--ease-out) 260ms}
+/* 块 4 掀角：版面只淡入，位移交给掀页本身（不要让入场去抢 transform） */
+html.js .viewer--peel .peel-page{opacity:0}
+html.js .viewer--peel.in .peel-page{opacity:1;transition:opacity var(--t-hero) var(--ease-out) 120ms}
+/* ---- 块头：块名 + 目标 / 我负责的 / 怎么实现的。
+        三样全取自 content.js 已有字段，不新写事实 ---- */
+.blk-head{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(18px,2.6vw,40px);
+  margin-bottom:clamp(26px,4svh,46px);
+  padding-top:clamp(16px,2.2svh,24px);border-top:1px solid var(--rule);
+}
+.blk-head--slim{padding-top:0;border-top:0;margin-bottom:clamp(18px,2.8svh,30px)}
+.blk-name{grid-column:1/-1;font-size:var(--f-md);font-weight:500;line-height:1.14;letter-spacing:-.02em}
+.blk-head .blk-name{margin-bottom:clamp(18px,2.8svh,30px)}
+.blk-head--slim .blk-name{margin-bottom:0}
+.blk-count{
+  margin-left:.7em;font-size:var(--f-xs);font-weight:400;letter-spacing:.02em;
+  color:var(--ink-2);font-variant-numeric:tabular-nums;
+}
+.blk-meta{grid-column:1/-1;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(18px,2.6vw,40px)}
+/* “怎么实现的”横跨整行；块 1 的五步再自己排成五列（竖排会占掉一整屏，把作品挤到屏幕外） */
+.blk-how{grid-column:1/-1;margin-top:clamp(20px,2.8svh,30px)}
+.blk-how-h{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);margin-bottom:10px}
+.blk--video .blk-steps{grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(12px,1.8vw,26px)}
+.blk--video .blk-step-text{font-size:var(--f-xs);line-height:1.6}
+.blk-row{margin:0 0 14px}
+.blk-row:last-child{margin-bottom:0}
+.blk-meta dt{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);margin-bottom:6px}
+.blk-meta dd{margin:0;font-size:var(--f-sm);line-height:1.7;text-wrap:pretty}
+.blk-steps{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.blk-steps li{display:grid;grid-template-columns:2.1em minmax(0,1fr);font-size:var(--f-sm);line-height:1.6}
+.blk-step-n{font-weight:400;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.blk-step-b{display:block}
+.blk-step-name{display:block;font-weight:500}
+.blk-step-text{display:block;color:var(--ink-2);font-weight:400}
+.blk-note{grid-column:1/-1;margin-top:clamp(18px,2.6svh,30px);font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3)}
 
 .card{
   position:relative;display:grid;align-content:start;
   grid-template-columns:1fr;grid-template-areas:"media" "body";
   gap:var(--gap);
 }
-.card--lead{grid-column:span 2;grid-row:span 2}
 .card-media{
   grid-area:media;position:relative;aspect-ratio:4/5;overflow:hidden;
   opacity:.72;
@@ -275,6 +504,9 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
 .card:hover .card-media img,.card:focus-within .card-media img,.card.is-open .card-media img{filter:grayscale(0) contrast(1)}
 .card-body{grid-area:body;display:flex;flex-direction:column;gap:7px}
 .card-title{font-size:var(--f-sm);font-weight:500;line-height:1.5;letter-spacing:0}
+/* 卡面“我做了什么”：本版最重要的信息层级调整。原来这句角色说明只在展开后才看得到，
+   默认态只剩标题与播放量，读者看不出他做了什么 */
+.card-face{font-size:var(--f-xs);line-height:1.6;letter-spacing:.01em;color:var(--ink-2);text-wrap:pretty}
 .card-meta{
   display:flex;flex-wrap:wrap;gap:2px 12px;
   font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
@@ -285,15 +517,9 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
   border:0;padding:0;background:none;cursor:pointer;color:transparent;font-size:0;
 }
 
-/* 纯文字卡（虎扑长文）：不用图，用一枚极细边框撑住格子，其余什么都不给 */
-.card--text .card-media{
-  border:1px solid var(--rule);padding:clamp(14px,1.6vw,22px);
-  display:flex;flex-direction:column;justify-content:space-between;gap:14px;
-}
-.tc-cat{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2)}
-.tc-title{font-size:var(--f-sm);line-height:1.6;letter-spacing:0;text-wrap:pretty}
-.tc-stat{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);font-variant-numeric:tabular-nums}
-.tc-stat b{font-weight:400;color:var(--ink)}
+/* 多帧静帧：媒体区整条并排铺开（分镜/静帧组），不是单张封面 */
+.card-media--strip{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}
+.card-media--strip img{position:static;width:100%;height:100%}
 
 /* 展开态：卡片变成整行，左栏原地不动，右栏收详情 */
 .card.is-open{
@@ -337,6 +563,9 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
 }
 .detail-thumbs img:hover{filter:grayscale(0) contrast(1);opacity:1}
 .detail-links{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:clamp(18px,2.4svh,26px);font-size:var(--f-sm)}
+
+/* 块 1 / 块 2 的展开直接用上面第 7 节那套统一规则（.card.is-open + --colw），
+   不再有单独的“峰值卡”特例——块 1 的峰值现在是带架的台面。 */
 
 /* ------------------------------------------------------------ 8 能力索引 */
 /* 四行文字，不做卡片网格 */
@@ -430,29 +659,43 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
   .pr-fig{max-width:660px}
 }
 @media (max-width:860px){
-  .index{grid-template-columns:repeat(2,1fr);--colw:calc((100% - var(--gap)) / 2)}
   .exp{grid-template-columns:1fr;gap:8px}
   .exp-when{padding-top:0}
   .cap{grid-template-columns:1fr}
   .cap-stat{text-align:left}
+  .blk-head,.blk-meta{grid-template-columns:1fr;gap:16px}
+  .blk--video .blk-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px}
+  .blk--flow{grid-template-columns:1fr;gap:clamp(24px,3.6svh,40px)}
 }
 @media (max-width:600px){
   .hero{--fig-x:50%;padding-top:clamp(38px,7svh,60px)}
   .figure{width:min(94%,52svh,520px)}
   .hero-head{gap:6px 16px}
   .hero-role{align-items:flex-start;text-align:left;padding-top:0}
+  /* 窄屏上证据条会折成两行，抬高巨数，否则两者会叠在一起 */
+  html[data-peak="hero"] .hero-peak{bottom:clamp(104px,14svh,142px)}
   .hero-proof{gap:4px 14px}
-  .card--lead{grid-column:span 2;grid-row:auto}
-  .card--lead .card-media{aspect-ratio:5/4}
+  /* 四块在窄屏上全部收成 1–2 列，--colw 跟着变，展开时图片尺寸仍然前后一致 */
+  .blk--video .blk-body{grid-template-columns:repeat(2,1fr);--colw:calc((100% - var(--gap)) / 2)}
+  .blk--poster .blk-body{grid-template-columns:repeat(2,1fr);--colw:calc((100% - var(--gap)) / 2)}
+  /* 7 张海报 + meta = 8 格，两列正好四行铺满，窄屏上不用再单独调 meta 位置 */
+  /* 看台一列堆叠。转轮要把 --rw 缩小，半径跟着变小，整圈才放得下 */
+  .viewer,.viewer--book,.viewer--peel{grid-template-columns:1fr;gap:clamp(18px,2.6svh,28px)}
+  .viewer{--rw:150px;--rh:188px}
+  .viewer--book .book,.viewer--peel .peel{justify-self:center}
+  .book{width:min(100%,320px)}
+  .peel{aspect-ratio:1/1}
+  .v-dot{width:32px;height:32px}
+  /* 窄屏上五步收成一列，否别每列只剩一个字宽 */
+  .blk--video .blk-steps{grid-template-columns:1fr;gap:12px}
+  .art-title{max-width:none}
   .card.is-open{grid-template-columns:1fr;grid-template-areas:"media" "body" "detail"}
   .card.is-open .card-open{right:0;width:auto}
   .card.is-open .card-detail{margin-top:6px}
   .band .sec{padding-inline:var(--pad)}
 }
 @media (max-width:420px){
-  .index{grid-template-columns:1fr;--colw:100%}
-  .card--lead{grid-column:1/-1}
-  .card--lead .card-media{aspect-ratio:4/5}
+  .blk--video .blk-body,.blk--poster .blk-body{grid-template-columns:1fr;--colw:100%}
 }
 
 /* ------------------------------------------- 13 减弱动效 / flat 截图模式 */
@@ -462,7 +705,8 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
   html.js [data-rv]{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js [data-rv].in{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js body.loaded .hero-role,
-  html.js body.loaded .hero-proof{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
+  html.js body.loaded .hero-proof,
+  html.js body.loaded .hero-peak{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js .figure{transform:translateX(-50%)!important;transition:opacity var(--t-ui) linear!important}
   .card-media,.card-media img{transition-duration:200ms!important}
   .card.is-open .card-detail,
@@ -474,7 +718,7 @@ html.calm .mask-i{transform:none!important}
 html.calm [data-rv]{opacity:1;transform:none!important}
 html.calm .card.is-open .card-detail,
 html.calm .card.is-open.is-shown .card-detail{clip-path:none!important}
-html.calm .hero-role,html.calm .hero-proof,html.calm .figure{opacity:1;transform:none!important}
+html.calm .hero-role,html.calm .hero-proof,html.calm .hero-peak,html.calm .figure{opacity:1;transform:none!important}
 html.calm .figure{transform:translateX(-50%)!important}
 html.calm .bar{opacity:1;visibility:visible;border-bottom-color:var(--rule)}
 html.calm .hero-name .mask-i{transform:none}

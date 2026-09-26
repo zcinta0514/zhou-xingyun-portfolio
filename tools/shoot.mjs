@@ -5,8 +5,9 @@
  *   PLAN='[{"path":"site/index.html","name":"hero","scroll":0,"wait":800}]' \
  *     OUTDIR=/tmp/shots node tools/shoot.mjs
  *
- * PLAN 每项：{ path, name, scroll, offset, wait }
+ * PLAN 每项：{ path, name, scroll, offset, wait, js }
  *   scroll 给数字 = 滚到该 y；给字符串 = 当作选择器，滚到该元素顶部（可配 offset 微调）
+ *   js 给一段字符串，截图前在页面里执行（例：window.__page.open('tt-tt5') 展开某张卡）
  *
  * 两个必须知道的坑（都踩过）：
  *  1. headless 下 rAF 会被节流，不 pump 帧的话 IntersectionObserver 不派发、动效不推进 → 看起来像页面坏了。
@@ -100,6 +101,7 @@ for (const step of PLAN) {
         window.scrollTo(0, el.getBoundingClientRect().top + scrollY + ${step.offset || 0});return scrollY;})()`
     : `(()=>{window.scrollTo(0, ${step.scroll || 0});return scrollY;})()`;
   const y = await ev(expr);
+  if (step.js) await ev(step.js);          // 截图前可选：先执行一段页面内脚本（如展开某张卡）
   await pump(50);
   await sleep(step.wait ?? 400);
   const shot = await send('Page.captureScreenshot', { format: 'png' });

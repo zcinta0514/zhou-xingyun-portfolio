@@ -23,6 +23,10 @@
   var REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var INSTANT = FLAT || REDUCE;   // 不做 FLIP、不做计数、形象静止
   if (FLAT) html.classList.add('flat', 'calm');
+  // 峰值位置 A/B：默认把峰值放在作品区（代表作通栏），?peak=hero 换成首屏巨数。
+  // 两个方案共用一套数据和卡片，只换峰值的位置与体量，对比才有效。
+  var PEAK = /[?&]peak=hero/.test(location.search) ? 'hero' : 'works';
+  html.setAttribute('data-peak', PEAK);
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -40,6 +44,7 @@
   }
   // 指标统一为 [值, 说明] 对，值加粗、说明弱化
   function stats(node, pairs) {
+    node.textContent = '';                            // 允许重填（带架切换时要用）
     pairs.forEach(function (p, i) {
       if (i) node.appendChild(document.createTextNode(' · '));
       if (p[0] || p[1]) {
@@ -51,23 +56,26 @@
   }
 
   /* ------------------------------------------------------------ 1 数据整形 */
-  var G_TT = 'works-tiktok', G_IG = 'works-instagram', G_LONG = 'works-long';
+  // 作品章按「能力」分成四块，块 id 同时也是能力章的跳转锚点
+  var B_VIDEO = 'works-tiktok', B_POSTER = 'works-instagram', B_FLOW = 'works-localization', B_TEXT = 'works-hupu';
 
   function tiktokItems() {
     var list = S.tiktok.works.map(function (w) {
       return {
         id: 'tt-' + w.id, dom: 'work-' + w.id.toLowerCase(),
-        title: w.title, cat: w.cat,
+        title: w.title, cat: w.cat, face: w.face,
         media: w.src, alt: w.title + ' · 视频封面',
         meta: [[short(w.views), '播放'], [w.rate + '%', '互动']],
         stats: [[num(w.views), '播放'], [num(w.likes), '点赞'], [w.rate + '%', '互动率']],
         body: w.why,
         url: w.url, urlText: '在 TikTok 打开原帖',
-        lead: w.id === S.tiktok.lead
+        lead: w.id === S.tiktok.lead,
+        views: w.views
       };
     });
-    // 1.6M 那条是这一章的重点，排到第一位（内容不变，只调展示顺序）
-    list.sort(function (a, b) { return (b.lead ? 1 : 0) - (a.lead ? 1 : 0); });
+    // 按播放从高到低排（内容不变，只调展示顺序）。作品章导语对读者承诺了“从高到低”，
+    // 所以这个顺序是承诺的一部分，不能随意改回原顺序。1.6M 那条自然排在第一。
+    list.sort(function (a, b) { return b.views - a.views; });
     return list;
   }
 
@@ -79,7 +87,7 @@
         : [[tail, '']];
       return {
         id: 'ig-' + w.id, dom: 'work-' + w.id,
-        title: w.title, cat: w.cat,
+        title: w.title, cat: w.cat, face: w.face,
         media: w.images[0].src, alt: w.images[0].alt,
         meta: m, stats: m,
         body: w.desc,
@@ -91,28 +99,11 @@
     });
   }
 
-  function localizationItem() {
-    var L = S.localization;
-    return {
-      id: 'loc', dom: 'work-localization',
-      title: L.heading, cat: '日韩上线 · 教学内容',
-      media: L.capture.src, alt: L.capture.alt, pos: '40% center',
-      meta: [[L.count.value, L.count.label]],
-      stats: [[L.count.value, L.count.label]],
-      body: L.brief,
-      steps: L.steps,
-      note: L.credit + ' · ' + L.countNote,
-      caption: L.capture.caption,
-      url: L.accountUrl, urlText: L.accountLabel
-    };
-  }
-
   function hupuItems() {
     return S.hupu.articles.map(function (a) {
       return {
         id: 'hp-' + a.n, dom: 'work-hupu-' + a.n,
-        text: true,
-        title: a.title, cat: a.cat,
+        title: a.title, cat: a.cat, face: a.face,
         meta: [[num(a.views), '阅读'], [num(a.replies), '回复']],
         stats: [[num(a.views), '阅读'], [num(a.replies), '回复']],
         body: a.desc,
@@ -121,23 +112,480 @@
     });
   }
 
-  var GROUPS = [
-    { id: G_TT, name: S.tiktok.heading, count: S.tiktok.works.length + ' 条', items: tiktokItems() },
-    { id: G_IG, name: S.instagram.heading, count: S.instagram.works.length + ' 件', items: instagramItems() },
-    { id: G_LONG, name: S.localization.heading + ' · ' + S.hupu.heading, count: (S.hupu.articles.length + 1) + ' 件',
-      items: [localizationItem()].concat(hupuItems()) }
+  /* ---- 四块能力。每块：目标 / 我负责的 / 怎么实现的。
+     三样全部取自 content.js 已有字段（brief / duties / role / credit / steps / tags），
+     不新写任何事实，也不把同一句话说两遍。 ---- */
+  var TT_ALL = tiktokItems();
+  var TT_LEAD = TT_ALL.filter(function (w) { return w.lead; })[0];
+  var TT_REST = TT_ALL.filter(function (w) { return !w.lead; });
+  var IG = instagramItems();
+  var HP = hupuItems();
+
+  function dutyNames(d) { return d.map(function (x) { return x.name; }).join(' · '); }
+
+  var BLOCKS = [
+    {
+      kind: 'video', id: B_VIDEO, name: '短视频', count: S.tiktok.works.length + ' 条', cols: 5,
+      goal: S.tiktok.brief,
+      role: dutyNames(S.tiktok.duties),
+      how: S.tiktok.duties,
+      note: S.tiktok.note,
+      lead: TT_LEAD, items: TT_REST
+    },
+    {
+      kind: 'poster', id: B_POSTER, name: '视觉创意', count: S.instagram.works.length + ' 件', cols: 4,
+      goal: S.instagram.brief,
+      role: S.instagram.works[2].credit,
+      how: S.instagram.tags.join(' · '),
+      note: S.instagram.note,
+      items: IG
+    },
+    {
+      kind: 'flow', id: B_FLOW, name: '内容规划与外包协作', count: S.localization.count.value, cols: 2,
+      goal: S.localization.brief,
+      role: S.localization.credit,
+      note: S.localization.countNote,
+      steps: S.localization.steps,
+      shot: S.localization.capture,
+      shotUrl: S.localization.accountUrl,
+      shotLabel: S.localization.accountLabel
+    },
+    {
+      kind: 'text', id: B_TEXT, name: '长文', count: S.hupu.articles.length + ' 篇', cols: 2,
+      goal: S.hupu.brief,
+      role: S.hupu.role,
+      how: S.hupu.tags.join(' · '),
+      note: S.hupu.note,
+      items: HP
+    }
   ];
+
+  /* ------------------------------------------------- 2.5 块级公共件 */
+  // 目标 / 我负责的 / 怎么实现的：三行一组，值可以是字符串，也可以是节点
+  function buildMeta(rows) {
+    var dl = el('dl', 'blk-meta');
+    rows.forEach(function (r) {
+      if (!r || !r[1] || (typeof r[1] === 'string' && !r[1].length)) return;
+      var row = el('div', 'blk-row');
+      row.appendChild(el('dt', null, r[0]));
+      var dd = el('dd');
+      if (r[1].nodeType) dd.appendChild(r[1]);
+      else dd.textContent = r[1];
+      row.appendChild(dd);
+      dl.appendChild(row);
+    });
+    return dl;
+  }
+  // 五步 / 三步这类流程：带序号的短列表（有 text 就带一句说明）
+  function buildSteps(steps) {
+    var ol = el('ol', 'blk-steps');
+    steps.forEach(function (s) {
+      var li = el('li');
+      li.appendChild(el('b', 'blk-step-n', s.n || ''));
+      var box = el('span', 'blk-step-b');
+      box.appendChild(el('b', 'blk-step-name', s.name));
+      if (s.text) box.appendChild(el('span', 'blk-step-text', s.text));
+      li.appendChild(box);
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+  function buildHead(block, slim) {
+    var head = el('header', 'blk-head' + (slim ? ' blk-head--slim' : ''));
+    head.setAttribute('data-rv', '');
+    var h = el('h3', 'blk-name');
+    h.id = block.id + '-h';
+    h.appendChild(document.createTextNode(block.name));
+    h.appendChild(el('span', 'blk-count', block.count));
+    head.appendChild(h);
+    if (!slim) {
+      head.appendChild(buildMeta([['目标', block.goal], ['我负责的', block.role]]));
+      if (block.how) {
+        var how = el('div', 'blk-how');
+        how.appendChild(el('p', 'blk-how-h', '怎么实现的'));
+        how.appendChild(block.how.nodeType ? block.how : buildSteps(block.how));
+        head.appendChild(how);
+      }
+      if (block.note) head.appendChild(el('p', 'blk-note', block.note));
+    }
+    return head;
+  }
+
+  /* ------------------------------------------------- 2.6 四块各自的版式 */
+  function deckOld() { /* 主片换成带架后就不再需要单独的 feature 块 */ }
+
+  /* ------------------------------------------------- 2.6 翻阅装置 */
+  /* 作品块不再把东西平铺出来。每块是一台自己的翻阅装置，一次只完整露出一个：
+       短视频   ring 转轮 —— 圆环绕 Y 轴转，正面那盘对着你，背面自动消失
+       视觉创意 book 翻书 —— 一次只见一页，页面绕书脊转出去、露出下一页
+       长文     peel 掀角 —— 版面从右下角整张掀开，露出下一版
+       内容规划       —— 不是作品集，是“我怎么干的”，单独做成一台抽屉（见 renderCabinet）
+     外壳（计数 / 上一件 下一件 / 圆点 / 信息栏 / 键盘）四块共用，
+     真正不同的是各自那台舞台的机械动作。
+
+     舞台接口（三个可选）：
+       init(i)      建好后的初始状态
+       begin(i,p)   切换一开始就调（机械动作从这里出发）
+       settle(i)    到 swapAt 时调（用于舞台内部的内容换位）
+       finish(i)    机械动作结束后调（复位、备下一轮）
+     注意：对被 IntersectionObserver 观察的元素不要下 clip-path，
+     被裁到 0 面积就永远等不到揭示回调（PROGRESS.md 记过）。 */
+  var viewers = {};
+
+  // ---- 舞台：转轮 ----
+  function stageRing(v) {
+    var box = el('div', 'ring');
+    var inner = el('div', 'ring-in');
+    var step = 360 / v.items.length;                 // 6 盘 → 每盘 60°，正好一圈
+    v.figs = [];
+    v.items.forEach(function (item, i) {
+      var f = el('figure', 'ring-i');
+      // 半径由卡宽推出来：正六边形外接圆 R = w / (2·tan30°) = w × .866
+      f.style.transform = 'rotateY(' + (i * step) + 'deg) translateZ(calc(var(--rw) * .866))';
+      var im = el('img');
+      im.src = asset(item.media); im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+      f.appendChild(im);
+      inner.appendChild(f);
+      v.figs.push(f);
+    });
+    box.appendChild(inner);
+    v.inner = inner; v.step = step;
+    function mark(i) { v.figs.forEach(function (f, n) { f.classList.toggle('is-on', n === i); }); }
+    return {
+      el: box, swapAt: 320, dur: 700,
+      init: function (i) { inner.style.transform = 'rotateY(' + (-i * step) + 'deg)'; mark(i); },
+      begin: function (i) { inner.style.transform = 'rotateY(' + (-i * step) + 'deg)'; mark(i); },  // 整圈转 60° = 轮回
+      settle: function () {}
+    };
+  }
+
+  // ---- 舞台：翻书 ----
+  // 两层就够：下层放“下一页”，上层绕书脊转出去；过 90° 后背面不可见，
+  // 下面那页自然就露出来了。转完再把上层复位、换成当前页。
+  function stageBook(v) {
+    var box = el('div', 'book');
+    var under = el('figure', 'book-page book-under');
+    var leaf = el('figure', 'book-page book-leaf');
+    var uim = el('img'), lim = el('img');
+    uim.alt = ''; lim.alt = '';
+    under.appendChild(uim); leaf.appendChild(lim);
+    box.appendChild(under); box.appendChild(leaf);
+    var edges = el('div', 'book-edges');           // 右侧一叠纸边的暗示
+    for (var k = 0; k < 4; k++) edges.appendChild(el('span', 'book-edge'));
+    box.appendChild(edges);
+    v.under = uim; v.leaf = lim;
+    function set(node, item) { node.src = asset(item.media); node.alt = item.title; }
+    return {
+      el: box, swapAt: 420, dur: 720,
+      init: function (i) {
+        set(lim, v.items[i]);
+        set(uim, v.items[(i + 1) % v.items.length]);
+      },
+      begin: function (i) {
+        set(uim, v.items[i]);                     // 转出去之后露出来的就是这一页
+        leaf.classList.add('is-flipping');
+      },
+      finish: function (i) {
+        leaf.style.transition = 'none';           // 复位不能带过渡，否则会倒着转回去
+        leaf.classList.remove('is-flipping');
+        void leaf.offsetHeight;
+        leaf.style.transition = '';
+        set(lim, v.items[i]);
+        set(uim, v.items[(i + 1) % v.items.length]);
+      }
+    };
+  }
+
+  // ---- 舞台：撕角（报纸版面从右下角掀开）----
+  // 长文没有图，版面本身就是内容：大标题 + 版号 + 阅读数，靠字撑起来。
+  function stagePeel(v) {
+    var box = el('div', 'peel');
+    var under = el('article', 'peel-page peel-under');
+    var leaf = el('article', 'peel-page peel-leaf');
+    box.appendChild(under); box.appendChild(leaf);
+    v.underEl = under; v.leafEl = leaf;
+    function fill(node, item) {
+      node.textContent = '';
+      var top = el('p', 'peel-top');
+      top.appendChild(el('span', 'peel-issue', '第 ' + (v.items.indexOf(item) + 1) + ' 版'));
+      top.appendChild(el('span', null, '虎扑 · 长文'));
+      node.appendChild(top);
+      node.appendChild(el('h5', 'peel-head', item.title));
+      node.appendChild(el('p', 'peel-face', item.face || ''));
+      node.appendChild(stats(el('p', 'peel-meta'), item.meta));
+    }
+    v.fill = fill;
+    return {
+      el: box, swapAt: 400, dur: 720,
+      init: function (i) {
+        fill(leaf, v.items[i]);
+        fill(under, v.items[(i + 1) % v.items.length]);
+      },
+      begin: function (i) {
+        fill(under, v.items[i]);
+        leaf.classList.add('is-peeling');
+      },
+      finish: function (i) {
+        leaf.style.transition = 'none';
+        leaf.classList.remove('is-peeling');
+        void leaf.offsetHeight;
+        leaf.style.transition = '';
+        fill(leaf, v.items[i]);
+        fill(under, v.items[(i + 1) % v.items.length]);
+      }
+    };
+  }
+
+  var STAGES = { ring: stageRing, book: stageBook, peel: stagePeel };
+
+  /* ---- 外壳 ---- */
+  function viewerPaint(v, i) {
+    var item = v.items[i];
+    v.count.textContent = (i + 1) + ' / ' + v.items.length;
+    v.title.textContent = item.title;
+    v.face.textContent = item.face || '';
+    v.why.textContent = item.body || '';
+    stats(v.meta, item.meta);
+    // 副数字只用于 TikTok 那种三项数据（中间那项赞），两项数据的块不再重复一遍
+    stats(v.sub, item.stats.length > 2 ? item.stats.slice(1, 2) : []);
+    if (item.url) {
+      v.link.href = item.url;
+      v.link.textContent = item.urlText || '打开原帖';
+      v.link.hidden = false;
+    } else v.link.hidden = true;
+    v.dots.forEach(function (d, n) {
+      d.classList.toggle('is-on', n === i);
+      if (n === i) d.setAttribute('aria-current', 'true');
+      else d.removeAttribute('aria-current');
+    });
+  }
+
+  function viewerGo(v, i) {
+    if (i === v.i) return;
+    var prev = v.i;
+    v.i = i;
+    v.stage.begin(i, prev);
+    if (INSTANT) {
+      if (v.stage.settle) v.stage.settle(i);
+      if (v.stage.finish) v.stage.finish(i);
+      viewerPaint(v, i);
+      return;
+    }
+    // 文字在机械动作走到一半（这时看不见舞台）时换掉，再从另一侧淡回来
+    v.panel.classList.add('is-turning');
+    clearTimeout(v.timer);
+    v.timer = setTimeout(function () {
+      if (v.stage.settle) v.stage.settle(i);
+      viewerPaint(v, i);
+      v.panel.classList.remove('is-turning');
+    }, v.stage.swapAt);
+    if (v.stage.finish) {
+      clearTimeout(v.timer2);
+      v.timer2 = setTimeout(function () { v.stage.finish(i); }, v.stage.dur);
+    }
+  }
+
+  function viewerStep(v, d) {
+    var n = v.items.length;
+    viewerGo(v, (v.i + d + n) % n);          // 到头回到开头，一圈一圈转
+  }
+
+  function buildViewer(block, items, kind) {
+    var v = { id: block.id, items: items, i: 0, kind: kind };
+    var wrap = el('div', 'viewer viewer--' + kind);
+    wrap.dataset.viewer = block.id;                 // viewerKeys 靠它找回是哪台装置
+    wrap.setAttribute('data-rv', '');
+
+    v.stage = STAGES[kind](v);
+    wrap.appendChild(v.stage.el);
+
+    var panel = el('div', 'vpanel');
+    v.count = el('span', 'v-count');
+    var n = el('p', 'v-n');
+    n.appendChild(v.count);
+    var nav = el('span', 'v-nav');
+    var prev = el('button', 'v-btn', '‹ 上一件');
+    var next = el('button', 'v-btn', '下一件 ›');
+    prev.type = 'button'; next.type = 'button';
+    prev.addEventListener('click', function () { viewerStep(v, -1); });
+    next.addEventListener('click', function () { viewerStep(v, 1); });
+    nav.appendChild(prev); nav.appendChild(next);
+    n.appendChild(nav);
+
+    // 一圈数字点：看得出“一共几件、现在第几件”，但不透内容
+    var dots = el('div', 'v-dots');
+    dots.setAttribute('role', 'group');
+    dots.setAttribute('aria-label', '选择作品');
+    v.dots = [];
+    items.forEach(function (item, i) {
+      var d = el('button', 'v-dot');
+      d.type = 'button';
+      d.textContent = String(i + 1);
+      d.setAttribute('aria-label', '第 ' + (i + 1) + ' 件：' + item.title);
+      d.addEventListener('click', function () { viewerGo(v, i); });
+      dots.appendChild(d);
+      v.dots.push(d);
+    });
+
+    v.title = el('h4', 'v-title');
+    v.face = el('p', 'v-face');
+    v.meta = el('p', 'v-meta');
+    v.sub = el('p', 'v-sub');
+    v.why = el('p', 'v-why');
+    v.link = el('a', 'link v-link');
+    v.link.target = '_blank'; v.link.rel = 'noopener noreferrer';
+    [n, dots, v.title, v.face, v.meta, v.sub, v.why, v.link]
+      .forEach(function (x) { panel.appendChild(x); });
+    wrap.appendChild(panel);
+    v.panel = panel;
+
+    v.stage.init(0);
+    viewerPaint(v, 0);
+    viewers[v.id] = v;
+    return wrap;
+  }
+
+  /* 抽屉柜：拉出一个、看一步。窗口固定高，靠 translateX 滑动，不动高度 */
+  function cabGo(cab, i) {
+    if (i === cab.i) return;
+    cab.i = i;
+    cab.drawer.style.transform = 'translateX(' + (-i * 100) + '%)';
+    cab.handles.forEach(function (b, n) { b.classList.toggle('is-on', n === i); });
+  }
+
+  function viewerKeys(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    var a = document.activeElement;
+    if (!a || !a.closest) return;
+    var host = a.closest('.viewer');
+    if (!host) return;                             // 焦点在装置里才接管方向键
+    var v = viewers[host.dataset.viewer];
+    if (!v) return;
+    e.preventDefault();
+    viewerStep(v, e.key === 'ArrowRight' ? 1 : -1);
+    v.dots[v.i].focus({ preventScroll: true });
+  }
+
+  function renderWorks() {
+    BLOCKS.forEach(function (b) {
+      var blk = el('section', 'blk blk--' + b.kind);
+      blk.id = b.id;
+      blk.setAttribute('aria-labelledby', b.id + '-h');
+
+      if (b.kind === 'flow') {
+        /* 块 3：不是作品网格，是“我怎么干的”。做成一台抽屉柜：
+           左边参数（目标 / 我负责的），右边三个把手，拉出一个看一步的说明与证据。 */
+        var side = el('div', 'blk-side');
+        side.setAttribute('data-rv', '');
+        var h3 = el('h3', 'blk-name');
+        h3.id = b.id + '-h';
+        h3.appendChild(document.createTextNode(b.name));
+        h3.appendChild(el('span', 'blk-count', b.count));
+        side.appendChild(h3);
+        side.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role]]));
+        side.appendChild(el('p', 'blk-note', b.note));
+        blk.appendChild(side);
+
+        var body = el('div', 'blk-body cabinet');
+        body.setAttribute('data-rv', '');
+        var handles = el('ul', 'cab-handles');
+        var hop = el('div', 'cab-hop');               // 抽屉口：固定窗口，里面滑动
+        var drawer = el('div', 'cab-drawer');
+        var sheets = [];
+        var cab = { drawer: drawer, handles: [], sheets: sheets, i: 0 };
+        hop.appendChild(drawer);
+        b.steps.forEach(function (s, n) {
+          var li = el('li');
+          var btn = el('button', 'cab-handle');
+          btn.type = 'button';
+          btn.style.setProperty('--n', String(n));      // 把手依次推入的错峰
+          btn.appendChild(el('b', 'cab-n', s.n));
+          btn.appendChild(el('span', 'cab-name', s.name));
+          btn.addEventListener('click', function () { cabGo(cab, n); });
+          li.appendChild(btn);
+          handles.appendChild(li);
+          cab.handles.push(btn);
+
+          var sheet = el('article', 'cab-sheet');
+          sheet.appendChild(el('p', 'cab-step', s.n + ' / ' + b.steps.length));
+          sheet.appendChild(el('h4', 'cab-h', s.name));
+          sheet.appendChild(el('p', 'cab-text', s.text));
+          if (n === b.steps.length - 1) {
+            // 最后一步带证据：日韩账号的公开页截图（去掉了就没有可核验的东西）
+            var fig = el('figure', 'cab-fig');
+            var si = el('img');
+            si.src = asset(b.shot.src); si.alt = b.shot.alt;
+            si.loading = 'lazy'; si.decoding = 'async';
+            fig.appendChild(si);
+            fig.appendChild(el('figcaption', 'pr-cap', b.shot.caption));
+            sheet.appendChild(fig);
+            var sa = el('a', 'link', b.shotLabel);
+            sa.href = b.shotUrl; sa.target = '_blank'; sa.rel = 'noopener noreferrer';
+            sheet.appendChild(sa);
+          }
+          sheets.push(sheet);
+          drawer.appendChild(sheet);
+        });
+        body.appendChild(handles);
+        body.appendChild(hop);
+        blk.appendChild(body);
+        indexEl.appendChild(blk);
+        return;
+      }
+
+      if (b.kind === 'text') {
+        /* 块 4：报纸版面，一次只掀开一版（见 stagePeel）*/
+        var th = el('h3', 'blk-name');
+        th.id = b.id + '-h';
+        th.appendChild(document.createTextNode(b.name));
+        th.appendChild(el('span', 'blk-count', b.count));
+        blk.appendChild(th);
+        blk.appendChild(buildViewer(b, b.items, 'peel'));
+        var tail = el('div', 'art-meta-block');
+        tail.setAttribute('data-rv', '');
+        tail.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role], ['怎么实现的', b.how]]));
+        if (b.note) tail.appendChild(el('p', 'blk-note', b.note));
+        blk.appendChild(tail);
+        indexEl.appendChild(blk);
+        return;
+      }
+
+      if (b.kind === 'video') {
+        /* 块 1：转轮。六条按播放降序，第一条是块里的峰值 */
+        blk.appendChild(buildHead(b));
+        blk.appendChild(buildViewer(b, [b.lead].concat(b.items), 'ring'));
+        indexEl.appendChild(blk);
+        return;
+      }
+
+      if (b.kind === 'poster') {
+        /* 块 2：翻书。7 张竖版海报，一次只见一页 */
+        blk.appendChild(buildHead(b, true));
+        blk.appendChild(buildViewer(b, b.items, 'book'));
+        var inCell = el('div', 'blk-meta--incell');
+        inCell.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role], ['怎么实现的', b.how]]));
+        if (b.note) inCell.appendChild(el('p', 'blk-note', b.note));
+        blk.appendChild(inCell);
+        indexEl.appendChild(blk);
+        return;
+      }
+    });
+  }
 
   /* ------------------------------------------------------------ 2 首屏 */
   var boxes = [];                                  // 四个真实数字的引用，用于只播一次的计数
   function renderHero() {
-    document.getElementById('hero-title').textContent = S.identity.title;
-    document.getElementById('hero-role-sub').textContent =
-      S.identity.cohort + ' · ' + S.education[0].major.split(' · ')[0] + '硕士 · ' +
-      S.education[1].major.replace(' · ', '');
+    // 主张句取代岗位名（岗位名退到次级行）
+    document.getElementById('hero-claim').textContent = S.identity.claim;
+    document.getElementById('hero-role-sub').textContent = S.identity.subline;
+
+    // PEAK=hero 时 1.6M 从证据条里拿出来，单独升为首屏的巨数；其余三个（或四个）留在条里
+    var peakProof = null, rest = [];
+    S.proof.forEach(function (p) { if (p.peak) peakProof = p; else rest.push(p); });
+    if (PEAK === 'works') rest = S.proof;
 
     var box = document.getElementById('hero-proof');
-    S.proof.forEach(function (p) {
+    rest.forEach(function (p) {
       var b = el('b', null, fmtProof(p, p.value));
       boxes.push({ el: b, to: p.value, fmt: function (v) { return fmtProof(p, v); } });
       var span = el('span');
@@ -145,8 +593,18 @@
       span.appendChild(document.createTextNode(' ' + p.label));
       box.appendChild(span);
     });
-    // 四个数字各自的出处与日期（content.js 的 source），挂在 title 上，不另起一行文字
-    box.title = S.proof.map(function (p) { return p.label + '：' + p.source; }).join('\n');
+    // 每个数字各自的出处与日期（content.js 的 source），挂在 title 上，不另起一行文字
+    box.title = rest.map(function (p) { return p.label + '：' + p.source; }).join('\n');
+
+    if (PEAK === 'hero' && peakProof) {
+      var line = document.getElementById('hero-peak');
+      var big = el('b', null, fmtProof(peakProof, peakProof.value));
+      line.appendChild(big);
+      line.appendChild(el('span', null, peakProof.label));
+      line.hidden = false;
+      line.title = peakProof.label + '：' + peakProof.source;
+      boxes.push({ el: big, to: peakProof.value, fmt: function (v) { return fmtProof(peakProof, v); } });
+    }
   }
   function fmtProof(p, v) {
     return (p.dec ? v.toFixed(p.dec) : num(Math.round(v))) + p.suffix;
@@ -158,18 +616,23 @@
   var byId = {};
 
   function buildCard(item, i) {
-    var card = el('article', 'card' + (item.lead ? ' card--lead' : '') + (item.text ? ' card--text' : ''));
+    var card = el('article', 'card');
     card.id = item.dom;
     card.setAttribute('data-rv', '');
     card.style.setProperty('--i', String(i % 3));
     byId[item.id] = card;
 
-    /* 媒体区：图片卡是图，纯文字卡是一小块铅字版面 */
+    /* 媒体区：单张封面，或多帧静帧整条铺开 */
     var media = el('div', 'card-media');
-    if (item.text) {
-      media.appendChild(el('p', 'tc-cat', item.cat));
-      media.appendChild(el('h4', 'tc-title', item.title));
-      media.appendChild(stats(el('p', 'tc-stat'), item.meta));
+    if (item.thumbs && item.thumbs.length) {
+      // 多帧静帧：整条并排铺开，让“这是一组画面”直接看得出来（原来只能展开后看到）
+      media.classList.add('card-media--strip');
+      [item.media].concat(item.thumbs.map(function (t) { return t.src; })).forEach(function (src) {
+        var im = el('img');
+        im.src = asset(src); im.alt = item.title + ' 静帧';
+        im.loading = 'lazy'; im.decoding = 'async';
+        media.appendChild(im);
+      });
     } else {
       var im = el('img');
       im.src = asset(item.media);
@@ -181,13 +644,14 @@
     }
     card.appendChild(media);
 
-    /* 标题区 */
-    if (!item.text) {
-      var body = el('div', 'card-body');
-      body.appendChild(el('h4', 'card-title', item.title));
-      body.appendChild(stats(el('p', 'card-meta'), item.meta));
-      card.appendChild(body);
-    }
+    /* 标题区：标题 → 我做了什么 → 数字 */
+    var body = el('div', 'card-body');
+    body.appendChild(el('h4', 'card-title', item.title));
+    // 卡面一行“我做了什么”：把原本只能展开后看到的角色说明提到正面，
+    // 这是这一版最重要的信息层级调整——默认态不再只有标题和播放量
+    if (item.face) body.appendChild(el('p', 'card-face', item.face));
+    body.appendChild(stats(el('p', 'card-meta'), item.meta));
+    card.appendChild(body);
 
     /* 点击层：整张卡可点，语义在按钮上 */
     var btn = el('button', 'card-open');
@@ -251,20 +715,7 @@
     return box;
   }
 
-  function renderWorks() {
-    GROUPS.forEach(function (g) {
-      var label = el('div', 'glabel');
-      label.id = g.id;
-      label.appendChild(el('h3', null, g.name));
-      label.appendChild(el('span', null, g.count));
-      indexEl.appendChild(label);
-      g.items.forEach(function (item, i) {
-        var card = buildCard(item, i);
-        cards.push(card);
-        indexEl.appendChild(card);
-      });
-    });
-  }
+  function renderWorksLegacy() { /* 已被上面的分块版式取代 */ }
 
   /* ------------------------------------------------- 4 卡片展开：手写 FLIP */
   var openCard = null, flipTimer = 0, showTimer = 0, focusTimer = 0;
@@ -368,9 +819,9 @@
   /* ------------------------------------------------------- 5 能力 / 经历 / 项目 */
   function renderCaps() {
     var caps = [
-      { i: 0, href: '#' + G_TT, stat: '短视频 ' + S.tiktok.works.length + ' 条 · Instagram ' + S.instagram.works.length + ' 件' },
-      { i: 1, href: '#' + G_LONG, stat: '日韩上线教学 ' + S.localization.count.value + ' 条' },
-      { i: 2, href: '#work-hupu-01', stat: '虎扑长文 ' + S.hupu.articles.length + ' 篇 · 单篇最高 ' + num(S.hupu.articles[0].views) + ' 阅读' },
+      { i: 0, href: '#' + B_VIDEO, stat: '短视频 ' + S.tiktok.works.length + ' 条 · Instagram ' + S.instagram.works.length + ' 件' },
+      { i: 1, href: '#' + B_FLOW, stat: '日韩上线教学 ' + S.localization.count.value + ' 条' },
+      { i: 2, href: '#' + B_TEXT, stat: '虎扑长文 ' + S.hupu.articles.length + ' 篇 · 单篇最高 ' + num(S.hupu.articles[0].views) + ' 阅读' },
       { i: 3, href: '#practice', stat: S.practice.rally.story[2].metric.value + ' 玩家 · 个人项目' }
     ];
     var box = document.getElementById('caps');
@@ -462,6 +913,14 @@
     right.appendChild(other);
 
     box.appendChild(right);
+  }
+
+  function renderSectionLeads() {
+    [['lead-works', 'works'], ['lead-capability', 'capability'],
+     ['lead-experience', 'experience'], ['lead-practice', 'practice']].forEach(function (m) {
+      var node = document.getElementById(m[0]);
+      if (node) node.textContent = S.sections[m[1]] || '';
+    });
   }
 
   function renderContact() {
@@ -576,6 +1035,8 @@
     renderCaps();
     renderExps();
     renderPractice();
+    renderSectionLeads();
+    document.addEventListener('keydown', viewerKeys);
     renderContact();
     observeReveals();
     initBar();
