@@ -61,7 +61,7 @@
       cursorIn: false, keyboard: false,
       phase: 0, last: 0, raf: 0,
       staticMode: !!(opt.static || reduceQuery.matches),
-      ready: false, seen: false
+      ready: false, begun: false, inView: true
     };
 
     /* ---- 交叉淡入 ---- */
@@ -130,13 +130,19 @@
       shadow.style.opacity = (1 - 0.14 * p).toFixed(3);
     }
     function start() {
-      if (st.raf || st.staticMode || !st.ready) return;
+      if (st.raf || st.staticMode || !st.ready || !st.begun || !st.inView || document.hidden) return;
       st.last = 0;
       st.raf = requestAnimationFrame(tick);
     }
     function stop() {
       if (st.raf) cancelAnimationFrame(st.raf);
       st.raf = 0;
+    }
+    function present() {
+      // begin() 与图片加载完成的先后顺序不固定，两条路径都走这里。
+      if (!st.begun || !st.ready) return;
+      if (st.staticMode) showSingle(frontIndex());
+      else { render(st.cur); start(); }
     }
 
     /* ---- 指针 ---- */
@@ -188,12 +194,13 @@
     if ('IntersectionObserver' in window) {
       io = new IntersectionObserver(function (entries) {
         var e = entries[0];
-        if (e.isIntersecting) start(); else stop();
+        st.inView = e.isIntersecting;
+        if (st.inView) start(); else stop();
       }, { threshold: 0 });
       io.observe(root);
     }
     function onVisibility() {
-      if (document.hidden) stop(); else if (st.seen) start();
+      if (document.hidden) stop(); else start();
     }
 
     /* ---- 静止降级 ---- */
@@ -206,10 +213,10 @@
         shadow.style.opacity = '1';
         st.target = st.cur = 0;
         root.removeAttribute('tabindex');
-        if (st.frames.length) showSingle(frontIndex());
+        present();
       } else {
         root.setAttribute('tabindex', '0');
-        if (st.frames.length) { render(st.cur); start(); }
+        present();
       }
     }
 
@@ -240,7 +247,7 @@
           return;
         }
         st.ready = true;
-        if (!st.seen) { st.seen = true; return; }   // 等 main.js 调 begin()
+        present();
       }
       imgs.forEach(function (img, i) {
         function settle(okFlag) {
@@ -271,11 +278,8 @@
     return {
       // main.js 在全页内容就绪后调用，避免形象先于文字出现
       begin: function () {
-        st.seen = true;
-        if (!st.ready) return;
-        if (st.staticMode) { showSingle(frontIndex()); return; }
-        render(st.cur);
-        start();
+        st.begun = true;
+        present();
       },
       setStatic: applyStatic,
       stop: stop,

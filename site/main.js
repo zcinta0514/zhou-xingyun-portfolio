@@ -3,12 +3,8 @@
    --------------------------------------------------------------------------
    数据：全部读 versions/shared/content.js（全站唯一事实来源），
         本文件只做呈现与派生计算，不写死任何数字。
-   动效：
-     · 入场用 IntersectionObserver 观察「不被裁切」的 [data-rv] 元素，只播一次
-     · 卡片展开用手写 FLIP：卡片在格子间平移，尺寸与图片前后完全一致，因此只需要 translate，
-       不会出现文字被缩放变形的问题
-     · 展开分两级：先平移就位（700ms），再用 clip-path 把详情自上而下揭开（700ms）
-     · 关闭：Esc / 收起按钮 / 再点一次卡片；焦点回到卡片
+   呈现：按事实组织首屏、作品、经历与个人项目；手势在 viewers.js / cabinet.js。
+   入场：观察不被裁切的 [data-rv] 元素，每个只播一次。
    ========================================================================== */
 (function () {
   'use strict';
@@ -21,13 +17,8 @@
   var html = document.documentElement;
   var FLAT = /[?&]flat=1/.test(location.search);
   var REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var INSTANT = FLAT || REDUCE;   // 不做 FLIP、不做计数、形象静止
+  var INSTANT = FLAT || REDUCE;   // 静态降级，不做计数与人物跟随
   if (FLAT) html.classList.add('flat', 'calm');
-  // 峰值位置 A/B：默认把峰值放在作品区（代表作通栏），?peak=hero 换成首屏巨数。
-  // 两个方案共用一套数据和卡片，只换峰值的位置与体量，对比才有效。
-  var PEAK = /[?&]peak=hero/.test(location.search) ? 'hero' : 'works';
-  html.setAttribute('data-peak', PEAK);
-
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -213,6 +204,7 @@
 
   /* 四台装置使用真实素材直接操作，面板只显示内容与不可点击的进度。 */
   var viewers = {};
+  var indexEl = document.getElementById('index');
   function buildViewer(block, items, kind) {
     var node = window.createWorkViewer(block, items, kind, {el:el, asset:asset, stats:stats, instant:INSTANT});
     viewers[block.id] = node;
@@ -252,11 +244,13 @@
         th.appendChild(el('span', 'blk-count', b.count));
         blk.appendChild(th);
         blk.appendChild(buildViewer(b, b.items, 'peel'));
-        var tail = el('div', 'art-meta-block');
-        tail.setAttribute('data-rv', '');
-        tail.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role], ['怎么实现的', b.how]]));
-        if (b.note) tail.appendChild(el('p', 'blk-note', b.note));
+        var tail = el('details', 'work-notes');
+        tail.appendChild(el('summary', null, '长文创作的背景与分工'));
+        var articleNotes = el('div', 'work-context');
+        articleNotes.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role], ['怎么实现的', b.how]]));
+        tail.appendChild(articleNotes);
         blk.appendChild(tail);
+        if (b.note) blk.appendChild(el('p', 'blk-note', b.note));
         indexEl.appendChild(blk);
         return;
       }
@@ -281,10 +275,13 @@
         /* 块 2：翻书。7 张竖版海报，一次只见一页 */
         blk.appendChild(buildHead(b, true));
         blk.appendChild(buildViewer(b, b.items, 'book'));
-        var inCell = el('div', 'blk-meta--incell');
-        inCell.appendChild(buildMeta([['目标', b.goal], ['怎么实现的', b.how]]));
-        if (b.note) inCell.appendChild(el('p', 'blk-note', b.note));
+        var inCell = el('details', 'work-notes');
+        inCell.appendChild(el('summary', null, '视觉创意的内容背景'));
+        var posterNotes = el('div', 'work-context');
+        posterNotes.appendChild(buildMeta([['目标', b.goal], ['怎么实现的', b.how]]));
+        inCell.appendChild(posterNotes);
         blk.appendChild(inCell);
+        if (b.note) blk.appendChild(el('p', 'blk-note', b.note));
         indexEl.appendChild(blk);
         return;
       }
@@ -294,266 +291,36 @@
   /* ------------------------------------------------------------ 2 首屏 */
   var boxes = [];                                  // 四个真实数字的引用，用于只播一次的计数
   function renderHero() {
-    // 主张句取代岗位名（岗位名退到次级行）
     document.getElementById('hero-claim').textContent = S.identity.claim;
-    document.getElementById('hero-role-sub').textContent = S.identity.subline;
-
-    // PEAK=hero 时 1.6M 从证据条里拿出来，单独升为首屏的巨数；其余三个（或四个）留在条里
-    var peakProof = null, rest = [];
-    S.proof.forEach(function (p) { if (p.peak) peakProof = p; else rest.push(p); });
-    if (PEAK === 'works') rest = S.proof;
-
+    document.getElementById('hero-role-sub').textContent = S.identity.title + ' · ' + S.identity.cohort;
     var box = document.getElementById('hero-proof');
-    rest.forEach(function (p) {
+    var labels = ['TikTok · 单条视频', '虎扑 · 单篇长文', '开拍 RALLY · 个人项目', 'TikTok · 账号历史记录'];
+    var targets = ['#' + B_VIDEO, '#' + B_TEXT, '#practice', '#' + B_VIDEO];
+    S.proof.forEach(function (p, i) {
+      var a = el('a', 'proof-item' + (p.peak ? ' proof-item--primary' : ''));
+      a.href = targets[i]; a.title = p.label + '：' + p.source;
       var b = el('b', null, fmtProof(p, p.value));
-      boxes.push({ el: b, to: p.value, fmt: function (v) { return fmtProof(p, v); } });
-      var span = el('span');
-      span.appendChild(b);
-      span.appendChild(document.createTextNode(' ' + p.label));
-      box.appendChild(span);
+      boxes.push({ el:b, to:p.value, fmt:function (v) { return fmtProof(p, v); } });
+      var value = el('span', 'proof-value'); value.appendChild(b);
+      value.appendChild(el('span', 'proof-unit', i === 0 ? '播放' : i === 1 ? '阅读' : i === 2 ? '玩家' : '粉丝'));
+      a.appendChild(el('span', 'proof-context', labels[i]));
+      a.appendChild(value);
+      box.appendChild(a);
     });
-    // 每个数字各自的出处与日期（content.js 的 source），挂在 title 上，不另起一行文字
-    box.title = rest.map(function (p) { return p.label + '：' + p.source; }).join('\n');
-
-    if (PEAK === 'hero' && peakProof) {
-      var line = document.getElementById('hero-peak');
-      var big = el('b', null, fmtProof(peakProof, peakProof.value));
-      line.appendChild(big);
-      line.appendChild(el('span', null, peakProof.label));
-      line.hidden = false;
-      line.title = peakProof.label + '：' + peakProof.source;
-      boxes.push({ el: big, to: peakProof.value, fmt: function (v) { return fmtProof(peakProof, v); } });
-    }
   }
   function fmtProof(p, v) {
     return (p.dec ? v.toFixed(p.dec) : num(Math.round(v))) + p.suffix;
   }
 
-  /* ------------------------------------------------------------ 3 作品索引 */
-  var indexEl = document.getElementById('index');
-  var cards = [];
-  var byId = {};
-
-  function buildCard(item, i) {
-    var card = el('article', 'card');
-    card.id = item.dom;
-    card.setAttribute('data-rv', '');
-    card.style.setProperty('--i', String(i % 3));
-    byId[item.id] = card;
-
-    /* 媒体区：单张封面，或多帧静帧整条铺开 */
-    var media = el('div', 'card-media');
-    if (item.thumbs && item.thumbs.length) {
-      // 多帧静帧：整条并排铺开，让“这是一组画面”直接看得出来（原来只能展开后看到）
-      media.classList.add('card-media--strip');
-      [item.media].concat(item.thumbs.map(function (t) { return t.src; })).forEach(function (src) {
-        var im = el('img');
-        im.src = asset(src); im.alt = item.title + ' 静帧';
-        im.loading = 'lazy'; im.decoding = 'async';
-        media.appendChild(im);
-      });
-    } else {
-      var im = el('img');
-      im.src = asset(item.media);
-      im.alt = item.alt || '';
-      im.loading = 'lazy';
-      im.decoding = 'async';
-      if (item.pos) im.style.objectPosition = item.pos;
-      media.appendChild(im);
-    }
-    card.appendChild(media);
-
-    /* 标题区：标题 → 我做了什么 → 数字 */
-    var body = el('div', 'card-body');
-    body.appendChild(el('h4', 'card-title', item.title));
-    // 卡面一行“我做了什么”：把原本只能展开后看到的角色说明提到正面，
-    // 这是这一版最重要的信息层级调整——默认态不再只有标题和播放量
-    if (item.face) body.appendChild(el('p', 'card-face', item.face));
-    body.appendChild(stats(el('p', 'card-meta'), item.meta));
-    card.appendChild(body);
-
-    /* 点击层：整张卡可点，语义在按钮上 */
-    var btn = el('button', 'card-open');
-    btn.type = 'button';
-    btn.setAttribute('aria-expanded', 'false');
-    btn.setAttribute('aria-controls', 'd-' + item.id);
-    btn.setAttribute('aria-label', '展开详情：' + item.title);
-    btn.addEventListener('click', function () { openWork(card); });
-    card.appendChild(btn);
-
-    /* 详情：同一张卡里，展开时移到右栏 */
-    card.appendChild(buildDetail(item));
-    return card;
-  }
-
-  function buildDetail(item) {
-    var box = el('div', 'card-detail');
-    box.id = 'd-' + item.id;
-    box.tabIndex = -1;
-
-    var top = el('p', 'detail-top');
-    top.appendChild(el('span', null, item.cat));
-    top.appendChild(stats(el('span'), item.stats));
-    var close = el('button', 'detail-close', '收起');
-    close.type = 'button';
-    close.addEventListener('click', function () { closeWork(true); });
-    top.appendChild(close);
-    box.appendChild(top);
-
-    box.appendChild(el('p', 'detail-text', item.body));
-    if (item.role) box.appendChild(el('p', 'detail-text', '我的角色：' + item.role));
-
-    if (item.steps) {
-      var ul = el('ul', 'detail-steps');
-      item.steps.forEach(function (s) {
-        var li = el('li');
-        li.appendChild(el('b', null, s.name));
-        li.appendChild(document.createTextNode(s.text));
-        ul.appendChild(li);
-      });
-      box.appendChild(ul);
-    }
-    if (item.thumbs && item.thumbs.length) {
-      var th = el('div', 'detail-thumbs');
-      item.thumbs.forEach(function (t) {
-        var im = el('img');
-        im.src = asset(t.src); im.alt = t.alt || '';
-        im.loading = 'lazy'; im.decoding = 'async';
-        th.appendChild(im);
-      });
-      box.appendChild(th);
-    }
-    if (item.note) box.appendChild(el('p', 'detail-note', item.note));
-    if (item.url) {
-      var links = el('p', 'detail-links');
-      var a = el('a', 'link', item.urlText);
-      a.href = item.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      links.appendChild(a);
-      box.appendChild(links);
-    }
-    return box;
-  }
-
-  function renderWorksLegacy() { /* 已被上面的分块版式取代 */ }
-
-  /* ------------------------------------------------- 4 卡片展开：手写 FLIP */
-  var openCard = null, flipTimer = 0, showTimer = 0, focusTimer = 0;
-
-  function btnOf(card) { return card.querySelector('.card-open'); }
-
-  function flip(mutate, dur) {
-    if (INSTANT) { mutate(); return; }              // 减弱动效时不位移
-    dur = dur || 700;
-    var before = cards.map(function (c) { return c.getBoundingClientRect(); });
-    mutate();
-    var moved = [];
-    cards.forEach(function (c, i) {
-      var a = before[i], b = c.getBoundingClientRect();
-      var dx = a.left - b.left, dy = a.top - b.top;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
-      c.style.transition = 'none';
-      c.style.transform = 'translate(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px)';
-      moved.push(c);
-    });
-    if (!moved.length) return;
-    void indexEl.offsetHeight;                       // 强制回流，保证起始态已被应用
-    moved.forEach(function (c) {
-      c.style.transition = 'transform ' + dur + 'ms var(--ease-expo)';
-      c.style.transform = '';
-    });
-    clearTimeout(flipTimer);
-    flipTimer = setTimeout(function () {
-      moved.forEach(function (c) { c.style.transition = ''; c.style.transform = ''; });
-    }, dur + 90);
-  }
-
-  function openWork(card) {
-    if (card === openCard) { closeWork(true); return; }
-    var prev = openCard;
-    openCard = card;
-    alignTop(card);
-    flip(function () {
-      if (prev) {
-        prev.classList.remove('is-open', 'is-shown');
-        btnOf(prev).setAttribute('aria-expanded', 'false');
-      }
-      card.classList.add('is-open');
-      btnOf(card).setAttribute('aria-expanded', 'true');
-    });
-    settle(card);
-  }
-
-  // 详情从卡片顶部开始展开：卡片被滚过头时必须先拉回顶端，否则用户点完什么都看不见
-  function alignTop(card) {
-    var top = card.getBoundingClientRect().top;
-    var limit = 84;                                  // 顶栏 64 + 呼吸
-    if (top < limit) window.scrollTo(0, Math.max(0, window.scrollY + top - limit));
-  }
-
-  // 第二级：详情自上而下揭开
-  function settle(card) {
-    clearTimeout(showTimer); clearTimeout(focusTimer);
-    if (INSTANT) { card.classList.add('is-shown'); focusDetail(card); return; }
-    showTimer = setTimeout(function () {
-      if (openCard === card) card.classList.add('is-shown');
-    }, 240);
-    focusTimer = setTimeout(function () { focusDetail(card); }, 300);
-  }
-
-  // 展开后焦点进入详情区：Tab 能直接走到链接，Esc 随时可关
-  function focusDetail(card) {
-    if (openCard !== card) return;
-    var d = card.querySelector('.card-detail');
-    if (d) d.focus({ preventScroll: true });
-  }
-
-  function closeWork(focusBack) {
-    var card = openCard;
-    if (!card) return;
-    openCard = null;
-    clearTimeout(showTimer); clearTimeout(focusTimer);
-    var btn = btnOf(card);
-    btn.setAttribute('aria-expanded', 'false');
-    card.classList.remove('is-shown');               // clip 先收回
-    var collapse = function () {
-      flip(function () { card.classList.remove('is-open'); }, 560);
-      if (focusBack) {
-        btn.focus({ preventScroll: true });
-        setTimeout(function () {                       // 收起后卡片可能落到视口外
-          var r = btn.getBoundingClientRect();
-          var vh = window.innerHeight || 0;
-          if (r.top < 80 || r.bottom > vh - 40) {
-            btn.scrollIntoView({ block: 'center', behavior: INSTANT ? 'auto' : 'smooth' });
-          }
-        }, INSTANT ? 0 : 320);
-      }
-    };
-    if (INSTANT) collapse(); else setTimeout(collapse, 200);
-  }
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && openCard) { e.preventDefault(); closeWork(true); }
-  });
-
   /* ------------------------------------------------------- 5 能力 / 经历 / 项目 */
   function renderCaps() {
-    var caps = [
-      { i: 0, href: '#' + B_VIDEO, stat: '短视频 ' + S.tiktok.works.length + ' 条 · Instagram ' + S.instagram.works.length + ' 件' },
-      { i: 1, href: '#' + B_FLOW, stat: '日韩上线教学 ' + S.localization.count.value + ' 条' },
-      { i: 2, href: '#' + B_TEXT, stat: '虎扑长文 ' + S.hupu.articles.length + ' 篇 · 单篇最高 ' + num(S.hupu.articles[0].views) + ' 阅读' },
-      { i: 3, href: '#practice', stat: S.practice.rally.story[2].metric.value + ' 玩家 · 个人项目' }
-    ];
     var box = document.getElementById('caps');
-    caps.forEach(function (c, n) {
-      var a = el('a', 'cap');
-      a.href = c.href;
-      a.setAttribute('data-rv', '');
-      a.style.setProperty('--i', String(n % 3));
-      var name = el('span', 'cap-name');
-      name.appendChild(el('span', 'link', S.capabilities[c.i].name));
-      a.appendChild(name);
-      a.appendChild(el('span', 'cap-stat', c.stat));
-      a.appendChild(el('span', 'cap-note', S.capabilities[c.i].summary));
+    S.capabilities.forEach(function (c) {
+      var a = el('a', 'cap'); a.href = c.id === 'ai' ? '#practice' : c.jump;
+      a.title = c.summary;
+      a.appendChild(el('span', 'cap-name', c.name));
+      a.appendChild(el('span', 'cap-short', c.short));
+      a.appendChild(el('span', 'cap-arrow', '↗'));
       box.appendChild(a);
     });
   }
@@ -561,18 +328,26 @@
   function renderExps() {
     var box = document.getElementById('exps');
     S.experience.forEach(function (e, i) {
-      var row = el('div', 'exp' + (i === 0 ? ' exp--now' : ''));
+      var row = el('article', 'exp' + (i === 0 ? ' exp--recent' : ''));
       row.setAttribute('data-rv', '');
       row.style.setProperty('--i', String(i % 3));
       row.appendChild(el('p', 'exp-when', e.period));
-      var main = el('div');
-      var co = el('h3', 'exp-co');
-      co.appendChild(document.createTextNode(e.company));
-      co.appendChild(el('span', 'exp-role', e.role));
-      main.appendChild(co);
-      var pts = el('p', 'exp-points');
-      e.points.forEach(function (p) { pts.appendChild(el('span', null, p)); });
+      var main = el('div', 'exp-main');
+      main.appendChild(el('h3', 'exp-co', e.company));
+      main.appendChild(el('p', 'exp-role', e.role));
+      var pts = el('ul', 'exp-points');
+      e.points.forEach(function (point) { pts.appendChild(el('li', null, point)); });
       main.appendChild(pts);
+      var evidence = e.company === '网易'
+        ? [[B_VIDEO, '短视频作品'], [B_POSTER, '视觉创意'], [B_FLOW, '日韩内容协作']]
+        : e.company === '虎扑' ? [[B_TEXT, '长文作品']] : [];
+      if (evidence.length) {
+        var refs = el('p', 'exp-evidence');
+        evidence.forEach(function (entry) {
+          var a = el('a', 'link', entry[1] + ' ↗'); a.href = '#' + entry[0]; refs.appendChild(a);
+        });
+        main.appendChild(refs);
+      }
       row.appendChild(main);
       box.appendChild(row);
     });
@@ -596,50 +371,46 @@
   function renderPractice() {
     var r = S.practice.rally, d = S.practice.douyin;
     var box = document.getElementById('practice-body');
-
     var fig = el('figure', 'pr-fig');
-    var im = el('img');
-    im.src = asset(r.visual.src); im.alt = r.visual.alt;
-    im.loading = 'lazy'; im.decoding = 'async';
-    fig.appendChild(im);
-    fig.appendChild(el('figcaption', 'pr-cap', r.visual.caption));
-    box.appendChild(fig);
-
-    var right = el('div');
-    right.appendChild(el('h3', 'pr-h', r.heading));
-    right.appendChild(el('p', 'pr-text', r.intro));
-    right.appendChild(el('p', 'pr-text', r.story[0].text));
-
-    var stat = el('p', 'pr-stat');
-    stat.appendChild(document.createTextNode(r.story[2].text + ' '));
-    stat.appendChild(el('b', null, r.story[2].metric.value + ' ' + r.story[2].metric.label));
-    stat.appendChild(document.createTextNode(' · ' + r.story[2].source));
-    right.appendChild(stat);
-
-    var links = el('p', 'pr-links');
-    [[r.play, '直接玩一局'], [r.code, '看源码']].forEach(function (x) {
-      var a = el('a', 'link', x[1]);
-      a.href = x[0]; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      links.appendChild(a);
-    });
-    right.appendChild(links);
-
-    var other = el('p', 'pr-else');
-    other.appendChild(document.createTextNode('另一个我：' + d.desc + ' '));
-    var da = el('a', 'link', d.name);
-    da.href = d.url; da.target = '_blank'; da.rel = 'noopener noreferrer';
-    other.appendChild(da);
-    right.appendChild(other);
-
-    box.appendChild(right);
+    var play = el('a', 'pr-play');
+    play.href = r.play; play.target = '_blank'; play.rel = 'noopener noreferrer';
+    play.setAttribute('aria-label', '打开开拍 RALLY 羽毛球小游戏');
+    var im = el('img'); im.src = asset(r.visual.src); im.alt = r.visual.alt;
+    im.width = 844; im.height = 390; im.loading = 'lazy'; im.decoding = 'async';
+    play.appendChild(im);
+    play.appendChild(el('span', 'pr-play-label', '打开游戏 ↗'));
+    fig.appendChild(play);
+    var caption = el('figcaption', 'pr-cap');
+    caption.appendChild(el('span', null, r.visual.caption));
+    var github = el('a', 'link', '查看源码 ↗');
+    github.href = r.code; github.target = '_blank'; github.rel = 'noopener noreferrer';
+    caption.appendChild(github); fig.appendChild(caption);
+    var intro = el('div', 'pr-intro');
+    intro.appendChild(el('h3', 'pr-h', r.heading));
+    intro.appendChild(el('p', 'pr-text', r.intro));
+    var result = el('p', 'pr-result');
+    result.appendChild(el('b', null, r.story[2].metric.value));
+    result.appendChild(el('span', null, r.story[2].metric.label));
+    intro.appendChild(result);
+    intro.appendChild(el('p', 'pr-source', r.story[2].text + ' ' + r.story[2].source));
+    var making = el('details', 'pr-making');
+    making.appendChild(el('summary', null, r.story[1].name));
+    making.appendChild(el('p', 'pr-text', r.story[1].text));
+    intro.appendChild(making);
+    var a = el('a', 'link pr-launch', '直接玩一局 ↗');
+    a.href = r.play; a.target = '_blank'; a.rel = 'noopener noreferrer'; intro.appendChild(a);
+    box.appendChild(intro); box.appendChild(fig);
+    var other = document.getElementById('personal-account');
+    var name = el('a', 'personal-account-name', d.name + ' ↗');
+    name.href = d.url; name.target = '_blank'; name.rel = 'noopener noreferrer';
+    other.appendChild(el('span', 'personal-account-label', d.label));
+    other.appendChild(name); other.appendChild(el('p', null, d.desc));
   }
 
   function renderSectionLeads() {
-    [['lead-works', 'works'], ['lead-capability', 'capability'],
-     ['lead-experience', 'experience'], ['lead-practice', 'practice']].forEach(function (m) {
-      var node = document.getElementById(m[0]);
-      if (node) node.textContent = S.sections[m[1]] || '';
-    });
+    document.getElementById('lead-works').textContent = '短视频、视觉创意、内容协作与长文。这里有我的分工、实现方式，以及作品的公开数据。';
+    document.getElementById('lead-experience').textContent = S.sections.experience;
+    document.getElementById('lead-practice').textContent = S.sections.practice;
   }
 
   function renderContact() {
@@ -649,6 +420,22 @@
     mail.href = 'mailto:' + C.email;
     mail.textContent = C.email;
     document.getElementById('contact-h').setAttribute('aria-label', '邮箱 ' + C.email);
+    var copy = document.getElementById('copy-mail');
+    var status = document.getElementById('copy-status');
+    copy.addEventListener('click', async function () {
+      try {
+        if (!navigator.clipboard) throw new Error('剪贴板不可用');
+        await navigator.clipboard.writeText(C.email);
+        status.textContent = '邮箱已复制';
+        copy.textContent = '已复制';
+      } catch (error) {
+        copy.textContent = '复制邮箱';
+        var range = document.createRange(); range.selectNodeContents(mail);
+        var selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        status.textContent = '邮箱已选中，可手动复制';
+      }
+    });
+
 
     var ul = document.getElementById('contact-meta');
     function item(k, v, href, extra) {
@@ -715,19 +502,19 @@
   function initBar() {
     var bar = document.getElementById('bar');
     var links = [].slice.call(bar.querySelectorAll('[data-nav]'));
-    var secs = { works: 'works', experience: 'experience', contact: 'contact' };
-    var order = ['works', 'experience', 'contact'];
+    var secs = { works: 'works', experience: 'experience', practice:'practice', contact: 'contact' };
+    var order = ['works', 'experience', 'practice', 'contact'];
     var on = null, current = null, ticking = false;
 
     function sync() {
       var y = window.scrollY || window.pageYOffset || 0;
-      var show = y > (window.innerHeight || 800) * 0.62;
+      var show = y > 36;
       if (show !== on) { on = show; bar.classList.toggle('is-on', show); }
 
       var mid = y + (window.innerHeight || 800) * 0.4, found = '';
       order.forEach(function (id) {
         var s = document.getElementById(secs[id]);
-        if (s && s.offsetTop <= mid) found = id;
+        if (s && s.getBoundingClientRect().top + y <= mid) found = id;
       });
       if (found !== current) {
         current = found;
@@ -777,20 +564,13 @@
 
   /* 自检钩子：只读 + 少量可控操作，供无头浏览器截图脚本使用 */
   window.__page = {
-    open: function (id) { var c = byId[id]; if (c) openWork(c); },
-    close: function () { closeWork(true); },
     finish: function () { boxes.forEach(function (b) { b.el.textContent = b.fmt(b.to); }); },
     revealAll: function () { [].forEach.call(document.querySelectorAll('[data-rv]'), function (t) { t.classList.add('in'); }); },
     get state() {
       return {
-        open: openCard ? openCard.id : null,
         count: TT_ALL.length + IG.length + HP.length, flat: FLAT, reduce: REDUCE,
         viewers: Object.keys(viewers).map(function (id) { return viewers[id].viewerState; }),
-        proof: boxes.map(function (b) { return b.el.textContent; }),
-        cards: cards.map(function (c) {
-          var r = c.getBoundingClientRect();
-          return { id: c.id, x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
-        })
+        proof: boxes.map(function (b) { return b.el.textContent; })
       };
     }
   };

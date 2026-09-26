@@ -22,11 +22,11 @@
 :root{
   /* 色彩：几乎无彩，彩色只留给作品 */
   --paper:#EFEDE6;
-  --paper-2:#EBE8E0;            /* 中段一块略深的纸色，制造明暗起伏（提到这个亮度，--ink-2 在其上仍达 4.6:1） */
+  --paper-2:#E5E0D5;            /* 中段一块略深的纸色，制造明暗起伏（提到这个亮度，--ink-2 在其上仍达 4.6:1） */
   --ground:#1A1917;              /* 唯一一屏深色的底色（等于 --ink，另立令牌以免被局部覆盖） */
   --ink:#1A1917;
   --ink-2:#6B675E;              /* 次级文字：暖灰，不是纯灰 */
-  --ink-3:#9C978C;
+  --ink-3:#777166;
   --rule:rgba(26,25,23,.12);
   --accent:#B4472A;             /* 全站唯一强调色：链接下划线、焦点环、一处标记 */
 
@@ -41,7 +41,7 @@
   --t-hero:1000ms;              /* 首屏入场（强） */
 
   /* 字号：只有四档 */
-  --f-xs:11.5px;                /* 标签、注释、数据 */
+  --f-xs:12px;                /* 标签、注释、数据 */
   --f-sm:15.5px;                /* 正文 */
   --f-md:clamp(26px,3.2vw,42px);/* 章节标题、能力名、详情标题 */
   --f-xl:clamp(38px,7vw,104px); /* 首屏名字、邮箱 */
@@ -50,6 +50,7 @@
   --pad:clamp(20px,5vw,76px);
   --gap:clamp(16px,1.8vw,26px);
   --max:1580px;
+  --edge:max(var(--pad),calc((100vw - var(--max)) / 2 + var(--pad)));
   --bar:64px;                   /* 顶栏高度，锚点补偿用 */
 }
 
@@ -79,8 +80,6 @@ h1,h2,h3{text-wrap:balance}
   outline-offset:3px;
   border-radius:2px;
 }
-/* 程序化聚焦的容器不画环 */
-.card-detail:focus{outline:none}
 
 /* 链接：下划线用强调色，悬停时由右向左收回（160ms，只动 transform） */
 .link{
@@ -111,28 +110,15 @@ h1,h2,h3{text-wrap:balance}
 }
 .skip:focus{transform:none}
 
-/* -------------------------------------------------------- 3 顶栏（延后出现） */
-.bar{
-  position:fixed;z-index:60;left:0;right:0;top:0;
-  display:flex;justify-content:flex-end;
-  padding:0 var(--pad);
-  height:var(--bar);
-  background:var(--paper);
-  border-bottom:1px solid transparent;
-  opacity:0;visibility:hidden;
-  transition:opacity var(--t-ui) var(--ease-out),
-             visibility 0s linear var(--t-ui),
-             border-color var(--t-ui) var(--ease-out);
-}
-.bar.is-on{opacity:1;visibility:visible;border-bottom-color:var(--rule);transition-delay:0s,0s,0s}
+/* -------------------------------------------------------- 3 常驻轻导航 */
+.bar{position:fixed;z-index:60;inset:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 var(--edge);height:var(--bar);background:transparent;border-bottom:1px solid transparent}
+.bar.is-on{background:var(--paper);border-bottom-color:var(--rule)}
+.bar-brand{font-size:14px;font-weight:500;letter-spacing:.03em;text-decoration:none}
+.bar-brand span{margin-left:10px;font-weight:400;color:var(--ink-2);font-size:var(--f-xs)}
 .bar-nav{display:flex;align-items:center;gap:clamp(16px,2.4vw,34px)}
-.bar-nav a{
-  font-size:var(--f-xs);letter-spacing:.02em;text-decoration:none;
-  color:var(--ink-2);
-  transition:opacity var(--t-hover) var(--ease-out),color var(--t-hover) var(--ease-out);
-}
-.bar-nav a:hover{color:var(--ink)}
-.bar-nav a[aria-current="true"]{color:var(--ink)}
+.bar-nav a{font-size:var(--f-xs);letter-spacing:.02em;text-decoration:none;color:var(--ink-2)}
+.bar-nav a:hover,.bar-nav a[aria-current="true"]{color:var(--ink)}
+.bar-nav a[aria-current="true"]::before{content:"";display:inline-block;width:4px;height:4px;background:var(--accent);border-radius:50%;margin:0 7px 2px 0}
 .bar-cv{color:var(--ink)!important;border-bottom:1px solid var(--accent);padding-bottom:2px}
 
 /* ------------------------------------------------------------ 4 揭示原语 */
@@ -158,7 +144,7 @@ html.js .in .mask-i{transform:none;transition:transform var(--t-card) var(--ease
 }
 .hero-head{position:static}        /* 旧结构兼容，不再参与布局 */
 .hero-name{
-  position:absolute;left:var(--pad);top:56%;
+  position:absolute;left:var(--edge);top:56%;
   transform:translateY(-50%);
   margin:0;z-index:1;pointer-events:none;
   white-space:nowrap;
@@ -171,22 +157,22 @@ html.js .in .mask-i{transform:none;transition:transform var(--t-card) var(--ease
 html.js .hero-name .mask-i{transition:transform var(--t-hero) var(--ease-expo)}
 html.js body.loaded .hero-name .mask-i{transform:none}
 .hero-role{
-  position:absolute;left:var(--pad);top:clamp(34px,6svh,62px);
+  position:absolute;left:var(--edge);top:clamp(94px,12svh,130px);
   z-index:3;
   display:flex;flex-direction:column;gap:4px;
 }
-.hero-role-main{font-size:var(--f-sm);line-height:1.45;color:var(--ink-2)}
-.hero-role-sub{font-size:var(--f-xs);line-height:1.6;color:var(--ink-2);letter-spacing:.02em}
-html.js .hero-role,html.js .hero-proof,html.js .hero-peak{opacity:0}
-html.js .hero-proof,html.js .hero-peak{transform:translateY(10px)}
+.hero-role-main{font-size:clamp(17px,1.3vw,20px);line-height:1.65;color:var(--ink);max-width:36em;text-wrap:balance}
+.hero-role-sub{margin-top:10px;font-size:var(--f-xs);line-height:1.6;color:var(--ink-2);letter-spacing:.02em}
+html.js .hero-role,html.js .hero-proof{opacity:0}
+html.js .hero-proof{transform:translateY(10px)}
 html.js body.loaded .hero-role{opacity:1;transition:opacity var(--t-card) var(--ease-out) 80ms}
 .hero-stage{position:absolute;inset:0;z-index:2;pointer-events:none}
 
 /* 形象：绝对定位，向下锚定，方形框由 CSS 定尺寸（figure.js 只管帧与转角） */
 .figure{
-  position:absolute;left:var(--fig-x,66%);bottom:clamp(80px,13svh,136px);
+  position:absolute;left:var(--fig-x,66%);bottom:clamp(128px,17svh,172px);
   transform:translateX(-50%);
-  width:min(72svh,660px,58vw);aspect-ratio:1/1;
+  width:min(70svh,640px,56vw);aspect-ratio:1/1;
   opacity:0;
   pointer-events:auto;             /* 键盘可聚焦 */
 }
@@ -210,41 +196,30 @@ html.js body.loaded .figure{opacity:1}
   filter:blur(6px);pointer-events:none;
 }
 
-/* 四个真实数字：一行小字，不做大数字并排 */
-.hero-proof{
-  position:absolute;left:var(--pad);right:var(--pad);bottom:clamp(18px,3svh,32px);
-  z-index:3;
-  display:flex;flex-wrap:wrap;gap:6px clamp(18px,3vw,42px);
-  padding-top:clamp(12px,1.6svh,18px);
-  border-top:1px solid var(--rule);
-  font-size:var(--f-sm);letter-spacing:.01em;color:var(--ink-2);
-}
-.hero-proof b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
-
-/* 峰值方案 B（?peak=hero）：1.6M 从证据条里拿出来，升为首屏唯一的巨数。
-   用 --f-xl 一档（与首屏名字、邮箱同级），此时证据条只剩其余三个数字，
-   全页不会再出现第二个这么大体量的东西——这就是“唯一的峰值”。 */
-.hero-peak{
-  position:absolute;left:var(--pad);bottom:clamp(56px,8.6svh,88px);
-  z-index:3;margin:0;
-  display:flex;align-items:baseline;gap:clamp(10px,1.1vw,16px);flex-wrap:wrap;
-  font-size:var(--f-xl);font-weight:400;line-height:1;letter-spacing:-.045em;color:var(--ink);
-}
-.hero-peak b{font-weight:500;font-variant-numeric:tabular-nums}
-.hero-peak span{font-size:var(--f-xs);font-weight:400;letter-spacing:.02em;color:var(--ink-2)}
-.hero-peak[hidden]{display:none}
+/* 证据各有语境，点击回到对应内容；不用把不同口径拼成战绩总数。 */
+.hero-entry{position:absolute;z-index:4;left:var(--edge);bottom:clamp(154px,20svh,200px);font-size:var(--f-sm)}
+.hero-entry span{display:inline-block;margin-left:40px;color:var(--accent);transition:transform var(--t-hover) var(--ease-out)}
+.hero-entry:hover span{transform:translate(3px,-3px)}
+.hero-proof{position:absolute;left:var(--edge);right:var(--edge);bottom:28px;z-index:3;display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:20px;padding-top:16px;border-top:1px solid var(--rule)}
+.proof-item{display:flex;flex-direction:column;gap:5px;text-decoration:none;color:var(--ink)}
+.proof-context{font-size:var(--f-xs);color:var(--ink-2);letter-spacing:.02em}
+.proof-value{display:flex;align-items:baseline;gap:8px;line-height:1.15}
+.proof-value b{font-size:28px;font-weight:400;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.proof-item--primary .proof-value b{font-size:38px}
+.proof-unit{font-size:var(--f-xs);color:var(--ink-2)}
+.proof-item:hover .proof-context{color:var(--accent)}
 html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(--t-card) var(--ease-out) 160ms,transform var(--t-card) var(--ease-out) 160ms}
-/* 峰值数字比证据条晚一拍出现，让“名字 → 形象 → 巨数 → 证据条”分四拍入场 */
-html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(--t-hero) var(--ease-out) 240ms,transform var(--t-hero) var(--ease-out) 240ms}
+.no-script{padding:30px var(--pad)}
 
 /* ------------------------------------------------------------ 6 章节外壳 */
 .sec{
   max-width:var(--max);margin-inline:auto;
   padding:clamp(64px,9.5svh,116px) var(--pad);
 }
+.works-ground{background:#F7F5EF;--paper:#F7F5EF}
 .band{background:var(--paper-2)}
 .sec-h{
-  font-size:var(--f-md);font-weight:500;line-height:1.12;letter-spacing:-.02em;
+  font-size:clamp(40px,4.7vw,68px);font-weight:500;line-height:1.12;letter-spacing:-.04em;
   margin-bottom:clamp(26px,4.2svh,46px);   /* 标题上方留白 > 下方留白 */
 }
 .sec-h .mask-i{text-box:trim-both cap alphabetic}
@@ -260,33 +235,19 @@ html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(-
   margin:clamp(38px,6svh,62px) 0 14px;padding-top:16px;border-top:1px solid var(--rule);
 }
 
-/* ------------------------------------------------------------ 7 作品索引 */
-/* ------------------------------------------------- 7 作品：按能力分块 */
-/* 不再是“一个大网格装十六件”。四块 = 四种能力，每块有自己的版式、自己的 meta 位置、
-   自己的揭示方向。骨架借自 obys 作品页：旁边一列固定的元信息，媒体序列尺寸不一，
-   文字写进留白，不堆在同一套卡片里。
-     · 短视频  上置 meta 横条 + 通栏主片 + 五格片单 · 片单从左横向擦入
-     · 视觉创意 meta 填进海报墙最后一格              · 逐张自下揭开
-     · 内容规划 左参数 + 右三步流程                   · 细线从左长出、步骤随后上升
-     · 长文    meta 收在末尾，正文只有两行大字          · 不动（克制就是它的区别） */
+/* ------------------------------------------------------------ 7 作品章 */
+.section-opening{display:flex;justify-content:space-between;align-items:flex-end;gap:48px;margin-bottom:28px}
+.section-opening .sec-h{margin:0}
+.section-opening .sec-lead{margin:0;max-width:42ch}
+.works-index{display:flex;gap:clamp(24px,5vw,80px);padding:16px 0 24px;margin-bottom:24px;border-bottom:1px solid var(--rule)}
+.works-index a{font-size:13px;color:var(--ink-2);text-decoration:none;display:flex;gap:32px}
+.works-index a:hover{color:var(--ink)}
+.works-index span{color:var(--accent)}
 .blocks{display:block}
-
-/* ---- 块间距。块与块之间比块内松，前一块的尾巴不会和后一块的头黏在一起 ---- */
-.blk{padding-top:clamp(52px,7.4svh,92px)}
+.blk{padding-top:clamp(80px,12svh,124px)}
 .blk:first-child{padding-top:0}
-
-/* ---- 块体内网格。--colw = 单格宽，展开时左栏直接用它 → 图片尺寸前后完全一致 ---- */
 .blk-body{display:grid;gap:var(--gap)}
-.blk--video .blk-body{grid-template-columns:repeat(5,1fr);--colw:calc((100% - 4 * var(--gap)) / 5)}
-.blk--poster .blk-body{grid-template-columns:repeat(4,1fr);--colw:calc((100% - 3 * var(--gap)) / 4)}
 
-/* ---- 通栏主片：块 1 的峰值。图与说明并置，why 全文放在正面 ---- */
-/* ---- 块 1 的「带架」：一台翻阅装置，不是一排卡片 ----
-     台面放当前那盘的封面，切换时封面绕 Y 轴翻过去（翻带）；
-     下面一排磁带脊背可以点、可以按左右键，当前那盘抬起来。 */
-/* ---- 块 1 的「转轮」：一台轮回式的翻阅装置，不是一排卡片 ----
-     六盘磁带排成一个圆环（6 × 60° = 一圈），正面那盘朝着你，
-     两侧各斜着一盘、更远的转到背面就看不见了；点下一盘，整圈转 60°。 */
 /* 直接操作装置的外观在 viewers.css / cabinet.css，各自管理入场和手势。 */
 .blk-meta--incell{align-self:start;padding-top:24px}
 .blk-meta--incell .blk-meta{display:block}
@@ -297,6 +258,8 @@ html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(-
 .blk--flow .blk-meta{display:block}
 .art-meta-block{margin-top:clamp(22px,3.2svh,36px);max-width:64ch}
 .art-meta-block .blk-meta{display:block}
+.work-context{padding:14px 0 28px}
+.work-context .blk-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 50px}
 
 /* ---- 块头：块名 + 目标 / 我负责的 / 怎么实现的。
         三样全取自 content.js 已有字段，不新写事实 ---- */
@@ -307,7 +270,7 @@ html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(-
   padding-top:clamp(16px,2.2svh,24px);border-top:1px solid var(--rule);
 }
 .blk-head--slim{padding-top:0;border-top:0;margin-bottom:clamp(18px,2.8svh,30px)}
-.blk-name{grid-column:1/-1;font-size:var(--f-md);font-weight:500;line-height:1.14;letter-spacing:-.02em}
+.blk-name{grid-column:1/-1;font-size:clamp(25px,2.2vw,33px);font-weight:500;line-height:1.14;letter-spacing:-.02em}
 .blk-head .blk-name{margin-bottom:clamp(18px,2.8svh,30px)}
 .blk-head--slim .blk-name{margin-bottom:0}
 .blk-count{
@@ -332,217 +295,98 @@ html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(-
 .blk-step-text{display:block;color:var(--ink-2);font-weight:400}
 .blk-note{grid-column:1/-1;margin-top:clamp(18px,2.6svh,30px);font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3)}
 
-.card{
-  position:relative;display:grid;align-content:start;
-  grid-template-columns:1fr;grid-template-areas:"media" "body";
-  gap:var(--gap);
-}
-.card-media{
-  grid-area:media;position:relative;aspect-ratio:4/5;overflow:hidden;
-  opacity:.72;
-  transition:opacity 400ms var(--ease-out);
-}
-.card-media img{
-  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  filter:grayscale(1) contrast(.9);
-  transition:filter 400ms var(--ease-out);
-}
-/* 悬停/聚焦/展开：只有这一张恢复彩色与满不透明度 */
-.card:hover .card-media,.card:focus-within .card-media,.card.is-open .card-media{opacity:1}
-.card:hover .card-media img,.card:focus-within .card-media img,.card.is-open .card-media img{filter:grayscale(0) contrast(1)}
-.card-body{grid-area:body;display:flex;flex-direction:column;gap:7px}
-.card-title{font-size:var(--f-sm);font-weight:500;line-height:1.5;letter-spacing:0}
-/* 卡面“我做了什么”：本版最重要的信息层级调整。原来这句角色说明只在展开后才看得到，
-   默认态只剩标题与播放量，读者看不出他做了什么 */
-.card-face{font-size:var(--f-xs);line-height:1.6;letter-spacing:.01em;color:var(--ink-2);text-wrap:pretty}
-.card-meta{
-  display:flex;flex-wrap:wrap;gap:2px 12px;
-  font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
-}
-.card-meta b{font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums}
-.card-open{
-  position:absolute;z-index:2;inset:0;
-  border:0;padding:0;background:none;cursor:pointer;color:transparent;font-size:0;
-}
+/* ---------------------------------------------- 8 经历侧栏与能力目录 */
+.experience-layout{display:grid;grid-template-columns:minmax(250px,.7fr) minmax(0,1.3fr);gap:clamp(64px,9vw,140px);align-items:start}
+.experience-intro .sec-lead{max-width:29ch;margin:0 0 35px}
+.experience-intro .sec-h{margin-bottom:26px}
+.experience-intro .sub-h{margin:36px 0 10px;padding-top:18px}
+.caps{display:grid}
+.cap{position:relative;display:grid;gap:2px;padding:10px 24px 10px 0;text-decoration:none}
+.cap-name{font-size:14px;font-weight:500;line-height:1.5}
+.cap-short{font-size:var(--f-xs);color:var(--ink-2)}
+.cap-arrow{position:absolute;right:0;top:13px;font-size:14px;color:var(--ink-2)}
+.cap:hover .cap-name,.cap:hover .cap-arrow{color:var(--accent)}
 
-/* 多帧静帧：媒体区整条并排铺开（分镜/静帧组），不是单张封面 */
-.card-media--strip{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}
-.card-media--strip img{position:static;width:100%;height:100%}
+/* 经历先展示工作，再把已经存在的作品作为证据链接挂回去。 */
+.exp{position:relative;display:grid;gap:12px;padding:32px 0 36px;border-top:1px solid rgba(26,25,23,.24)}
+.exp:last-child{border-bottom:1px solid rgba(26,25,23,.24)}
+.exp-when{font-size:var(--f-xs);letter-spacing:.04em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.exp-co{font-size:clamp(28px,2.8vw,40px);font-weight:500;line-height:1.2;letter-spacing:-.025em}
+.exp-role{margin-top:9px;font-size:14px;color:var(--ink-2)}
+.exp-points{display:flex;flex-wrap:wrap;gap:4px 0;margin-top:20px;max-width:62ch;font-size:14px;color:var(--ink-2)}
+.exp-points li:not(:last-child)::after{content:" / ";white-space:pre;color:var(--ink-3)}
+.exp-evidence{display:flex;flex-wrap:wrap;gap:14px 24px;margin-top:22px;font-size:var(--f-xs)}
+.exp--recent::before{content:"";position:absolute;top:38px;left:-20px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.exps--edu .exp{padding:14px 0;border:0;gap:6px}
+.exps--edu .exp-co{display:flex;flex-direction:column;gap:5px;font-size:14px;letter-spacing:0;font-weight:500}
+.exps--edu .exp-role{margin:0;font-size:var(--f-xs);font-weight:400}
+.exps--edu .exp-when{font-size:var(--f-xs)}
 
-/* 展开态：卡片变成整行，左栏原地不动，右栏收详情 */
-.card.is-open{
-  grid-column:1/-1;
-  grid-template-columns:var(--colw) minmax(0,1fr);
-  grid-template-areas:"media detail" "body detail";
-}
-.card.is-open .card-open{right:auto;width:var(--colw)}
-.card-detail{display:none}
-.card.is-open .card-detail{
-  display:block;grid-area:detail;align-self:start;
-  max-width:64ch;
-  clip-path:inset(0 0 100% 0);
-  transition:clip-path var(--t-ui) var(--ease-out);
-}
-.card.is-open.is-shown .card-detail{clip-path:inset(0);transition:clip-path var(--t-card) var(--ease-expo)}
-.detail-top{
-  display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;
-  padding-top:13px;margin-bottom:clamp(14px,2svh,20px);
-  border-top:1px solid var(--rule);
-  font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);font-variant-numeric:tabular-nums;
-}
-.detail-top b{font-weight:400;color:var(--ink)}
-.detail-close{
-  margin-left:auto;border:0;padding:0;background:none;cursor:pointer;
-  font:inherit;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
-  transition:opacity var(--t-hover) var(--ease-out);
-}
-.detail-close:hover{color:var(--ink)}
-.detail-text{font-size:var(--f-sm);color:var(--ink-2);max-width:60ch}
-.detail-note{margin-top:12px;font-size:var(--f-xs);color:var(--ink-2);letter-spacing:.02em;max-width:60ch}
-.detail-text+.detail-text{margin-top:12px}
-.detail-steps{margin-top:18px;display:grid;gap:9px}
-.detail-steps li{font-size:var(--f-sm);color:var(--ink-2);max-width:60ch}
-.detail-steps b{font-weight:500;color:var(--ink);margin-right:.7em}
-.detail-thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
-.detail-thumbs img{
-  width:clamp(104px,10vw,138px);aspect-ratio:4/5;object-fit:cover;
-  filter:grayscale(1) contrast(.9);opacity:.72;
-  transition:opacity 400ms var(--ease-out),filter 400ms var(--ease-out);
-}
-.detail-thumbs img:hover{filter:grayscale(0) contrast(1);opacity:1}
-.detail-links{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:clamp(18px,2.4svh,26px);font-size:var(--f-sm)}
+/* ------------------------------------------------------------ 9 个人项目 */
+#practice{padding-top:clamp(80px,13svh,136px);padding-bottom:clamp(64px,10svh,112px)}
+.practice{display:grid;grid-template-columns:minmax(0,.76fr) minmax(0,1.24fr);gap:clamp(40px,6vw,96px);align-items:center;margin-top:52px}
+.pr-intro{position:relative}
+.pr-h{max-width:11em;font-size:clamp(30px,3.1vw,44px);font-weight:500;line-height:1.25;letter-spacing:-.025em}
+.pr-text{margin-top:22px;max-width:48ch;color:var(--ink-2);line-height:1.8}
+.pr-result{display:flex;gap:12px;align-items:baseline;margin-top:30px;line-height:1}
+.pr-result b{font-size:clamp(44px,4.6vw,66px);font-weight:400;letter-spacing:-.04em}
+.pr-result span{font-size:14px;color:var(--ink-2)}
+.pr-source{max-width:40ch;margin-top:11px;font-size:var(--f-xs);color:var(--ink-2)}
+.pr-making{margin-top:24px;padding-top:14px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-2)}
+.pr-making summary{cursor:pointer}
+.pr-making .pr-text{font-size:14px;margin-top:12px}
+.pr-launch{margin-top:26px}
+.pr-fig{margin:0;min-width:0;position:relative}
+.pr-fig::before{content:"";position:absolute;inset:-22px 18px 50px -18px;background:#E0DBCF;transform:rotate(-2deg);z-index:-1}
+.pr-play{position:relative;display:block;background:var(--ground);color:var(--paper);text-decoration:none}
+.pr-play img{width:100%;height:auto;display:block}
+.pr-play-label{position:absolute;right:18px;bottom:16px;background:var(--ground);padding:8px 14px;font-size:var(--f-xs);box-shadow:0 0 0 1px rgba(239,237,230,.24)}
+.pr-cap{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:16px;font-size:var(--f-xs);color:var(--ink-2)}
+.personal-account{display:grid;grid-template-columns:.76fr .65fr 1fr;gap:32px;align-items:baseline;margin-top:64px;padding-top:24px;border-top:1px solid var(--rule)}
+.personal-account-label{font-size:var(--f-xs);color:var(--ink-2)}
+.personal-account-name{font-size:26px;letter-spacing:-.02em;text-decoration:none}
+.personal-account p{font-size:14px;color:var(--ink-2)}
 
-/* 块 1 / 块 2 的展开直接用上面第 7 节那套统一规则（.card.is-open + --colw），
-   不再有单独的“峰值卡”特例——块 1 的峰值现在是带架的台面。 */
-
-/* ------------------------------------------------------------ 8 能力索引 */
-/* 四行文字，不做卡片网格 */
-.caps{margin-top:clamp(6px,1.4svh,14px)}
-.cap{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 28px;align-items:baseline;
-  padding:clamp(18px,2.6svh,26px) 0;border-top:1px solid var(--rule);
-  text-decoration:none;
-}
-.cap:last-child{border-bottom:1px solid var(--rule)}
-.cap-name{font-size:var(--f-md);font-weight:500;line-height:1.2;letter-spacing:-.02em}
-.cap-name .link{display:inline}
-.cap-stat{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right}
-.cap-note{grid-column:1/-1;font-size:var(--f-sm);color:var(--ink-2);max-width:58ch}
-.cap:hover .link::after{transform-origin:100% 50%;transform:scaleX(0)}
-
-/* ---------------------------------------------------------------- 9 经历 */
-.exp{
-  display:grid;grid-template-columns:11.5em minmax(0,1fr);gap:6px clamp(20px,3vw,48px);
-  padding:clamp(22px,3.4svh,34px) 0;border-top:1px solid var(--rule);
-}
-.exp:last-child{border-bottom:1px solid var(--rule)}
-.exp-when{font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);font-variant-numeric:tabular-nums;padding-top:.4em}
-.exp-co{font-size:var(--f-md);font-weight:500;line-height:1.15;letter-spacing:-.02em;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
-.exp-role{font-size:var(--f-sm);font-weight:400;letter-spacing:0;color:var(--ink-2)}
-.exp-points{margin-top:10px;font-size:var(--f-sm);color:var(--ink-2);max-width:62ch}
-.exp-points span+span::before{content:"·";margin:0 .5em;color:var(--ink-3)}
-/* 全站唯一一处强调色标记：最近一段经历 */
-.exp--now .exp-when{color:var(--ink-2)}
-.exp--now .exp-when::after{
-  content:"";display:inline-block;width:5px;height:5px;margin-left:.6em;
-  border-radius:50%;background:var(--accent);vertical-align:middle;
-}
-.exps--edu .exp-co{font-size:var(--f-sm);font-weight:500}
-.exps--edu .exp-when{color:var(--ink-2)}
-
-/* ------------------------------------------------------------ 10 个人项目 */
-.practice{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:clamp(24px,3.6vw,56px);align-items:start}
-.pr-fig{margin:0}
-.pr-fig img{width:100%;height:auto;border:1px solid var(--rule)}
-.pr-cap{margin-top:10px;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2)}
-.pr-h{font-size:var(--f-md);font-weight:500;line-height:1.2;letter-spacing:-.02em}
-.pr-text{margin-top:clamp(14px,2svh,20px);max-width:52ch;color:var(--ink-2)}
-.pr-text em{font-style:normal;color:var(--ink-3)}
-.pr-stat{
-  margin-top:clamp(16px,2.4svh,24px);padding-top:14px;border-top:1px solid var(--rule);
-  font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2);
-}
-.pr-stat b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
-.pr-links{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:clamp(16px,2.4svh,22px);font-size:var(--f-sm)}
-.pr-else{margin-top:clamp(14px,2svh,20px);font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-2)}
-
-/* ------------------------------------------------------ 11 联系（唯一深色屏） */
-.contact{
-  background:var(--ground);
-  --ink:#EFEDE6;--ink-2:#B9B4A9;--ink-3:#928C80;--rule:rgba(239,237,230,.16);
-  color:var(--ink);
-  min-height:82svh;
-  display:flex;
-  padding:clamp(64px,11svh,120px) var(--pad) clamp(24px,4svh,40px);
-}
-.contact-in{
-  width:100%;max-width:var(--max);margin-inline:auto;
-  display:grid;grid-template-rows:auto 1fr auto;gap:clamp(30px,6svh,64px);
-}
+/* ----------------------------------------------- 10 联系：紧凑的深色收尾 */
+.contact{background:var(--ground);--ink:#EFEDE6;--ink-2:#B9B4A9;--ink-3:#A49D90;--rule:rgba(239,237,230,.2);color:var(--ink);min-height:66svh;display:flex;padding:clamp(60px,9svh,100px) var(--edge) 32px}
+.contact-in{width:100%;max-width:calc(var(--max) - var(--pad) * 2);margin-inline:auto;display:grid;grid-template-rows:auto 1fr auto;gap:40px}
 .contact-lead{max-width:42ch;color:var(--ink-2);font-size:var(--f-sm)}
-.contact-mail{align-self:center;font-weight:500;line-height:1.05;letter-spacing:-.03em}
-.contact-mail a{
-  /* 与首屏名字同一档字号；窄屏下按可用宽度收一档，避免溢出 */
-  font-size:min(var(--f-xl),8.6vw);
-  text-decoration:none;position:relative;display:inline-block;
-}
-.contact-mail a::after{
-  content:"";position:absolute;left:0;right:0;bottom:.02em;height:2px;
-  background:var(--accent);transform-origin:0 50%;
-  transition:transform var(--t-hover) var(--ease-out);
-}
-.contact-mail a:hover::after{transform-origin:100% 50%;transform:scaleX(0)}
-.contact-meta{
-  display:flex;flex-wrap:wrap;gap:12px clamp(20px,4vw,54px);
-  padding-top:18px;border-top:1px solid var(--rule);
-  font-size:var(--f-xs);letter-spacing:.02em;
-}
-.contact-meta li{display:flex;gap:.6em;align-items:baseline;color:var(--ink-3)}
+.contact-mail{align-self:center;font-weight:400;line-height:1.1;letter-spacing:-.035em}
+.contact-mail a{font-size:min(7.6vw,108px);text-decoration:none;position:relative;display:inline-block}
+.contact-mail a::after{content:"";position:absolute;left:0;right:0;bottom:-.08em;height:1px;background:var(--ink-2);transform-origin:0 50%;transition:transform var(--t-hover) var(--ease-out)}
+.contact-mail a:hover::after{transform:scaleX(.22)}
+.contact-actions{display:flex;align-items:center;gap:18px;margin:8px 0 26px;font-size:var(--f-xs)}
+.copy-mail{padding:8px 16px;border:1px solid var(--ink-2);color:var(--ink);background:none;font:inherit;cursor:pointer}
+.copy-mail:hover{background:var(--ink);color:var(--ground)}
+#copy-status{color:var(--ink-2)}
+.back-top{margin-left:auto;text-decoration:none;color:var(--ink-2)}
+.contact-meta{display:flex;flex-wrap:wrap;gap:12px clamp(20px,4vw,54px);padding-top:18px;border-top:1px solid var(--rule);font-size:var(--f-xs);letter-spacing:.02em}
+.contact-meta li{display:flex;gap:.6em;align-items:baseline;color:var(--ink-2)}
 .contact-meta a{color:var(--ink);text-decoration:none}
-.contact-note{margin-top:16px;font-size:var(--f-xs);letter-spacing:.02em;color:var(--ink-3)}
+.contact-note{margin-top:16px;font-size:var(--f-xs);color:var(--ink-2);max-width:100ch}
 
-/* ------------------------------------------------------------ 12 响应式 */
-@media (max-width:1080px){
-  .practice{grid-template-columns:1fr}
-  .pr-fig{max-width:660px}
-}
-@media (max-width:860px){
-  .exp{grid-template-columns:1fr;gap:8px}
-  .exp-when{padding-top:0}
-  .cap{grid-template-columns:1fr}
-  .cap-stat{text-align:left}
+/* ------------------------------------------------------------ 12 基础窄屏降级 */
+@media(max-width:1080px){.experience-layout{gap:48px}.practice{gap:40px}.personal-account{grid-template-columns:1fr 1fr}.personal-account p{grid-column:1/-1}}
+@media(max-width:860px){
+  .section-opening{align-items:flex-start;flex-direction:column;gap:18px}
+  .experience-layout,.practice{grid-template-columns:1fr}
+  .experience-intro .sec-lead{max-width:50ch}
+  .caps{grid-template-columns:1fr 1fr;gap:0 28px}
+  .exps--edu{display:flex;flex-wrap:wrap;gap:24px}
   .blk-head,.blk-meta{grid-template-columns:1fr;gap:16px}
-  .blk--video .blk-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px}
-  .blk--flow{grid-template-columns:1fr;gap:clamp(24px,3.6svh,40px)}
+  .blk--flow{grid-template-columns:1fr;gap:32px}
+  .hero-role-main{max-width:70vw}
 }
-@media (max-width:600px){
-  .hero{--fig-x:50%;padding-top:clamp(38px,7svh,60px)}
-  .figure{width:min(94%,52svh,520px)}
-  .hero-head{gap:6px 16px}
-  .hero-role{align-items:flex-start;text-align:left;padding-top:0}
-  /* 窄屏上证据条会折成两行，抬高巨数，否则两者会叠在一起 */
-  html[data-peak="hero"] .hero-peak{bottom:clamp(104px,14svh,142px)}
-  .hero-proof{gap:4px 14px}
-  /* 四块在窄屏上全部收成 1–2 列，--colw 跟着变，展开时图片尺寸仍然前后一致 */
-  .blk--video .blk-body{grid-template-columns:repeat(2,1fr);--colw:calc((100% - var(--gap)) / 2)}
-  .blk--poster .blk-body{grid-template-columns:repeat(2,1fr);--colw:calc((100% - var(--gap)) / 2)}
-  /* 7 张海报 + meta = 8 格，两列正好四行铺满，窄屏上不用再单独调 meta 位置 */
-  /* 看台一列堆叠。转轮要把 --rw 缩小，半径跟着变小，整圈才放得下 */
-  .viewer,.viewer--book,.viewer--peel{grid-template-columns:1fr;gap:clamp(18px,2.6svh,28px)}
-  .viewer{--rw:150px;--rh:188px}
-  .viewer--book .book,.viewer--peel .peel{justify-self:center}
-  .book{width:min(100%,320px)}
-  .peel{aspect-ratio:1/1}
-  /* 窄屏上五步收成一列，否别每列只剩一个字宽 */
+@media(max-width:600px){
+  .bar-brand span{display:none}.bar-nav{gap:14px}.bar-nav a{font-size:11px}
+  .bar-brand{font-size:12px}.hero-role{top:92px}
+  .hero{--fig-x:50%;padding-top:38px}.figure{width:min(94%,52svh,520px)}
+  .hero-proof{grid-template-columns:1fr 1fr;gap:12px}.proof-value b,.proof-item--primary .proof-value b{font-size:23px}
+  .hero-entry{bottom:200px}.works-index{flex-wrap:wrap;gap:15px 28px}.works-index a{gap:12px}
+  .viewer,.viewer--book,.viewer--peel{grid-template-columns:1fr;gap:24px}.viewer{--rw:150px;--rh:188px}
+  .book{width:min(100%,320px)}.peel{aspect-ratio:1/1}
   .blk--video .blk-steps{grid-template-columns:1fr;gap:12px}
-  .art-title{max-width:none}
-  .card.is-open{grid-template-columns:1fr;grid-template-areas:"media" "body" "detail"}
-  .card.is-open .card-open{right:0;width:auto}
-  .card.is-open .card-detail{margin-top:6px}
-  .band .sec{padding-inline:var(--pad)}
-}
-@media (max-width:420px){
-  .blk--video .blk-body,.blk--poster .blk-body{grid-template-columns:1fr;--colw:100%}
+  .contact-meta{flex-direction:column}
 }
 
 /* ------------------------------------------- 13 减弱动效 / flat 截图模式 */
@@ -552,20 +396,14 @@ html.js body.loaded .hero-peak{opacity:1;transform:none;transition:opacity var(-
   html.js [data-rv]{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js [data-rv].in{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js body.loaded .hero-role,
-  html.js body.loaded .hero-proof,
-  html.js body.loaded .hero-peak{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
+  html.js body.loaded .hero-proof{transform:none!important;transition:opacity var(--t-ui) var(--ease-out)!important}
   html.js .figure{transform:translateX(-50%)!important;transition:opacity var(--t-ui) linear!important}
-  .card-media,.card-media img{transition-duration:200ms!important}
-  .card.is-open .card-detail,
-  .card.is-open.is-shown .card-detail{clip-path:none!important;transition:none!important}
   .skip,.bar{transition:opacity var(--t-ui) linear!important}
 }
 html.calm{scroll-behavior:auto}
 html.calm .mask-i{transform:none!important}
 html.calm [data-rv]{opacity:1;transform:none!important}
-html.calm .card.is-open .card-detail,
-html.calm .card.is-open.is-shown .card-detail{clip-path:none!important}
-html.calm .hero-role,html.calm .hero-proof,html.calm .hero-peak,html.calm .figure{opacity:1;transform:none!important}
+html.calm .hero-role,html.calm .hero-proof,html.calm .figure{opacity:1;transform:none!important}
 html.calm .figure{transform:translateX(-50%)!important}
 html.calm .bar{opacity:1;visibility:visible;border-bottom-color:var(--rule)}
 html.calm .hero-name .mask-i{transform:none}

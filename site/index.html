@@ -9,18 +9,20 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="viewers.css">
 <link rel="stylesheet" href="cabinet.css">
-<!-- 有 JS 时才允许「初始隐藏 + 入场」，无 JS 时页面完整可读 -->
+<!-- 有 JS 时才启用入场；无脚本时保留姓名和简历入口。 -->
 <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
 <a class="skip" href="#works">跳到作品</a>
 <div class="grain" aria-hidden="true"></div>
 
-<!-- 顶栏：滚动过首屏后才出现，首屏保持纯净 -->
+<!-- 轻导航从首屏就可使用，滚动后加纸色底。 -->
 <header class="bar" id="bar">
+  <a class="bar-brand" href="#home">周性运 <span>Lucky</span></a>
   <nav class="bar-nav" aria-label="章节导航">
     <a href="#works" data-nav="works">作品</a>
     <a href="#experience" data-nav="experience">经历</a>
+    <a href="#practice" data-nav="practice">个人项目</a>
     <a href="#contact" data-nav="contact">联系</a>
     <a class="bar-cv" href="#" data-cv>简历 PDF</a>
   </nav>
@@ -29,7 +31,7 @@
 <main id="main">
 
   <!-- ① 首屏：形象站主位，名字、定位、四个真实数字分列三角 -->
-  <section class="hero" aria-labelledby="hero-name">
+  <section class="hero" id="home" aria-labelledby="hero-name">
     <div class="hero-head">
       <h1 class="hero-name" id="hero-name"><span class="mask"><span class="mask-i">周性运</span></span></h1>
       <p class="hero-role">
@@ -37,45 +39,58 @@
         <span class="hero-role-sub" id="hero-role-sub"></span>
       </p>
     </div>
+    <a class="hero-entry link" href="#works">浏览作品 <span aria-hidden="true">↗</span></a>
     <div class="hero-stage">
       <div class="figure" id="figure" role="img" tabindex="0"
            aria-keyshortcuts="ArrowLeft ArrowRight"
            aria-label="黏土质感的人物半身像：正面站立、微微含笑，会跟随鼠标左右移动转头看向光标。聚焦后可用左右方向键手动调整朝向。"></div>
     </div>
-    <p class="hero-proof" id="hero-proof"></p>
-    <!-- 峰值方案 B（?peak=hero）时启用：1.6M 升为全页唯一的巨数，证据条只剩其余三个 -->
-    <p class="hero-peak" id="hero-peak" hidden></p>
+    <nav class="hero-proof" id="hero-proof" aria-label="代表作品与数据"></nav>
   </section>
+  <noscript><p class="no-script">作品交互需要启用 JavaScript。你也可以直接<a href="../assets/resume-zhou-xingyun.pdf">下载简历</a>。</p></noscript>
 
-  <!-- ② 作品索引：全部作品同权排布，默认去色，点开原地展开 -->
+  <!-- ② 四种作品装置，目录按内容名称直达。 -->
+  <div class="works-ground">
   <section class="sec" id="works" aria-labelledby="works-h">
-    <h2 class="sec-h" id="works-h" data-rv><span class="mask"><span class="mask-i">作品</span></span></h2>
-    <p class="sec-lead" id="lead-works" data-rv></p>
+    <div class="section-opening">
+      <h2 class="sec-h" id="works-h" data-rv><span class="mask"><span class="mask-i">作品</span></span></h2>
+      <p class="sec-lead" id="lead-works"></p>
+    </div>
+    <nav class="works-index" aria-label="作品分类">
+      <a href="#works-tiktok">短视频 <span aria-hidden="true">↗</span></a>
+      <a href="#works-instagram">视觉创意 <span aria-hidden="true">↗</span></a>
+      <a href="#works-localization">内容协作 <span aria-hidden="true">↗</span></a>
+      <a href="#works-hupu">长文 <span aria-hidden="true">↗</span></a>
+    </nav>
     <div class="blocks" id="index"></div>
   </section>
+  </div>
 
-  <!-- ③ 中段：能力索引 + 经历，同一块略深的纸色，全页唯一的中景 -->
+  <!-- ③ 经历为主，能力与学历压进侧栏，避免再重复一整屏作品说明。 -->
   <div class="band">
-    <section class="sec" id="capability" aria-labelledby="cap-h">
-      <h2 class="sec-h" id="cap-h" data-rv><span class="mask"><span class="mask-i">我能做的事</span></span></h2>
-      <p class="sec-lead" id="lead-capability" data-rv></p>
-      <div class="caps" id="caps"></div>
-    </section>
-
-    <section class="sec" id="experience" aria-labelledby="exp-h">
-      <h2 class="sec-h" id="exp-h" data-rv><span class="mask"><span class="mask-i">经历</span></span></h2>
-      <p class="sec-lead" id="lead-experience" data-rv></p>
+    <section class="sec experience-layout" id="experience" aria-labelledby="exp-h">
+      <div class="experience-intro">
+        <h2 class="sec-h" id="exp-h" data-rv><span class="mask"><span class="mask-i">经历</span></span></h2>
+        <p class="sec-lead" id="lead-experience"></p>
+        <div id="capability">
+          <h3 class="sub-h" id="cap-h">我能做的事</h3>
+          <nav class="caps" id="caps" aria-labelledby="cap-h"></nav>
+        </div>
+        <h3 class="sub-h">学历</h3>
+        <div class="exps exps--edu" id="edus"></div>
+      </div>
       <div class="exps" id="exps"></div>
-      <h3 class="sub-h" data-rv>学历</h3>
-      <div class="exps exps--edu" id="edus"></div>
     </section>
   </div>
 
   <!-- ④ 个人项目 -->
   <section class="sec" id="practice" aria-labelledby="pr-h">
-    <h2 class="sec-h" id="pr-h" data-rv><span class="mask"><span class="mask-i">自己做的</span></span></h2>
-    <p class="sec-lead" id="lead-practice" data-rv></p>
+    <div class="section-opening">
+      <h2 class="sec-h" id="pr-h" data-rv><span class="mask"><span class="mask-i">自己做的</span></span></h2>
+      <p class="sec-lead" id="lead-practice"></p>
+    </div>
     <div class="practice" id="practice-body"></div>
+    <div class="personal-account" id="personal-account"></div>
   </section>
 
   <!-- ⑤ 收口：唯一的一屏深色，邮箱是主角 -->
@@ -83,8 +98,11 @@
     <div class="contact-in">
       <p class="contact-lead" id="contact-lead" data-rv></p>
       <h2 class="contact-mail" id="contact-h" data-rv><a id="contact-mail" href="#"></a></h2>
-      <ul class="contact-meta" id="contact-meta" data-rv></ul>
-      <p class="contact-note" id="contact-note"></p>
+      <div class="contact-bottom">
+        <div class="contact-actions"><button class="copy-mail" type="button" id="copy-mail">复制邮箱</button><span id="copy-status" role="status"></span><a href="#home" class="back-top">回到顶部 ↑</a></div>
+        <ul class="contact-meta" id="contact-meta"></ul>
+        <p class="contact-note" id="contact-note"></p>
+      </div>
     </div>
   </section>
 

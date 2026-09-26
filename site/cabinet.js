@@ -21,7 +21,15 @@
     var drag = null;
     var suppressClick = false;
     var ignoreTimer = 0;
+    var evidenceDialog = null;
+    var evidenceTrigger = null;
+    var previousOverflow = '';
     var instance = 'work-files-' + (++serial);
+    var shortNames = {
+      '规划内容与选题': '选题规划',
+      '整理中文制作说明': '制作说明',
+      '审核成片与反馈': '审核反馈'
+    };
 
     root.setAttribute('data-rv', '');
     root.setAttribute('role', 'region');
@@ -34,7 +42,12 @@
     heading.appendChild(el('span', 'wc-heading-note', '从选题到成片'));
     root.appendChild(heading);
     root.appendChild(stage);
-    var hint = el('p', 'wc-hint', '左右拖动纸页，或点击夹签抽出');
+    var hint = el('p', 'wc-hint');
+    var hintDirection = el('span', 'wc-hint-direction');
+    var hintText = el('span');
+    hintDirection.setAttribute('aria-hidden', 'true');
+    hint.appendChild(hintDirection);
+    hint.appendChild(hintText);
     hint.id = instance + '-hint';
     root.appendChild(hint);
     var status = el('p', 'wc-sr');
@@ -50,10 +63,14 @@
       tab.type = 'button';
       tab.dataset.file = String(index);
       tab.id = instance + '-tab-' + index;
+      tab.setAttribute('aria-label', step.name);
       tab.setAttribute('aria-controls', instance + '-body-' + index);
       tab.setAttribute('aria-describedby', hint.id);
       tab.appendChild(el('span', 'wc-tab-dot'));
-      tab.appendChild(el('span', 'wc-tab-name', step.name));
+      tab.appendChild(el('span', 'wc-tab-name', shortNames[step.name] || step.name));
+      var cue = el('span', 'wc-tab-cue');
+      cue.setAttribute('aria-hidden', 'true');
+      tab.appendChild(cue);
       file.appendChild(tab);
 
       var body = el('div', 'wc-body');
@@ -63,15 +80,34 @@
       body.appendChild(el('span', 'wc-paper-mark', '内容规划 / 工作记录'));
       body.appendChild(el('h4', 'wc-title', step.name));
       body.appendChild(el('p', 'wc-text', step.text));
+      // 只摘取当前原文中确实出现的词，不生成新的职责或交付物。
+      var topics = index === 0 ? ['内容方向', '阶段性选题', '教学目标'] :
+        index === 1 ? ['选题', '教学目标', '制作要求'] : [];
+      topics = topics.filter(function (topic) { return step.text.indexOf(topic) !== -1; });
+      if (topics.length) {
+        var topicList = el('ul', 'wc-topics');
+        topicList.setAttribute('aria-label', '工作要点');
+        topics.forEach(function (topic) { topicList.appendChild(el('li', '', topic)); });
+        body.appendChild(topicList);
+      }
       if (index === steps.length - 1 && block.shot) {
         var figure = el('figure', 'wc-evidence');
+        var preview = el('button', 'wc-evidence-open');
+        preview.type = 'button';
+        preview.setAttribute('aria-haspopup', 'dialog');
+        preview.setAttribute('aria-label', '放大查看：' + (block.shot.alt || block.shot.caption));
+        preview.addEventListener('click', function () { openEvidence(preview); });
         var image = el('img');
         image.src = asset(block.shot.src);
         image.alt = block.shot.alt || '';
         image.loading = 'lazy';
         image.decoding = 'async';
         image.addEventListener('load', function () { layout(true); });
-        figure.appendChild(image);
+        preview.appendChild(image);
+        var zoom = el('span', 'wc-evidence-zoom', '查看大图 ↗');
+        zoom.setAttribute('aria-hidden', 'true');
+        preview.appendChild(zoom);
+        figure.appendChild(preview);
         figure.appendChild(el('figcaption', 'wc-caption', block.shot.caption));
         body.appendChild(figure);
         if (block.shotUrl) {
@@ -84,7 +120,7 @@
       }
       file.appendChild(body);
       stage.appendChild(file);
-      files.push({ file: file, tab: tab, body: body });
+      files.push({ file: file, tab: tab, body: body, cue: cue });
       tab.addEventListener('click', function (event) {
         if (suppressClick) { event.preventDefault(); return; }
         select(index, false);
@@ -96,15 +132,31 @@
       return index * spine + (paperWidth - spine) * clamp(index - selected, 0, 1);
     }
 
-    function paint(from, to, progress, rubber) {
+    function paint(from, to, progress, rubber, pose) {
       files.forEach(function (entry, index) {
-        var x = mix(position(index, from), position(index, to), progress) + (rubber || 0);
-        var y = mix(Math.abs(index - from), Math.abs(index - to), progress) * 6;
-        var opacity = mix(index === from ? 1 : 0, index === to ? 1 : 0, progress);
+        var start = pose ? pose[index] : {
+          x: position(index, from), y: Math.abs(index - from) * 6,
+          opacity: index === from ? 1 : 0
+        };
+        var x = mix(start.x, position(index, to), progress) + (rubber || 0);
+        var y = mix(start.y, Math.abs(index - to) * 6, progress);
+        var opacity = mix(start.opacity, index === to ? 1 : 0, progress);
         entry.file.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)';
         entry.body.style.opacity = String(opacity);
         entry.body.style.visibility = opacity > 0.001 ? 'visible' : 'hidden';
       });
+    }
+
+    function freeze() {
+      // 吸附还未结束就再次抓住时，从屏幕上的位置继续，不跳到上次的目标位置。
+      var pose = files.map(function (entry) {
+        var transform = getComputedStyle(entry.file).transform;
+        var matrix = new DOMMatrixReadOnly(transform === 'none' ? undefined : transform);
+        return { x: matrix.m41, y: matrix.m42, opacity: Number(getComputedStyle(entry.body).opacity) };
+      });
+      root.classList.add('is-held');
+      paint(active, active, 0, 0, pose);
+      return pose;
     }
 
     function semantics() {
@@ -112,6 +164,9 @@
         var selected = index === active;
         entry.file.classList.toggle('is-open', selected);
         entry.tab.setAttribute('aria-expanded', String(selected));
+        entry.cue.textContent = selected ? (index === 0 ? '←' : index === files.length - 1 ? '→' : '↔') :
+          index > active ? '←' : '→';
+        entry.tab.title = steps[index].name + (selected ? ' · 拖动纸页翻阅' : ' · 点击或顺箭头拉出');
         entry.body.inert = !selected;
         entry.body.setAttribute('aria-hidden', String(!selected));
         // inert 在当前浏览器直接生效；tabindex 同时防止旧浏览器访问折叠夹内链接。
@@ -134,9 +189,12 @@
     function select(index, focus) {
       if (!files.length) return;
       active = clamp(index, 0, files.length - 1);
-      root.classList.remove('is-grabbing');
+      root.classList.remove('is-grabbing', 'is-held');
       semantics();
       paint(active, active, 0, 0);
+      hintDirection.textContent = active === 0 ? '←' : active === files.length - 1 ? '→' : '↔';
+      hintText.textContent = (active === 0 ? '向左拖，抽出下一份' : active === files.length - 1 ?
+        '向右拖，回看上一份' : '左右拖动，翻阅相邻档案') + ' · 也可点击夹签';
       status.textContent = '已展开：' + steps[active].name;
       if (focus) files[active].tab.focus({ preventScroll: true });
     }
@@ -171,7 +229,7 @@
     }
 
     stage.addEventListener('pointerdown', function (event) {
-      if (drag || event.button !== 0 || event.isPrimary === false || event.target.closest('a')) return;
+      if (drag || event.button !== 0 || event.isPrimary === false || event.target.closest('a, .wc-evidence-open')) return;
       // 完成拖动后的抑制只用于那一次合成点击，不影响下一次独立点击。
       suppressClick = false;
       window.clearTimeout(ignoreTimer);
@@ -181,7 +239,7 @@
         hit: tag ? Number(tag.dataset.file) : active, isTab: !!tag,
         x: event.clientX, y: event.clientY,
         lastX: event.clientX, lastTime: event.timeStamp,
-        velocity: 0, moved: false, progress: 0
+        velocity: 0, moved: false, progress: 0, pose: freeze()
       };
       stage.setPointerCapture(event.pointerId);
     });
@@ -212,11 +270,12 @@
       }
       var distance = Math.max(140, paperWidth - spine);
       drag.progress = clamp(dx * direction / distance, 0, 1);
-      if (drag.target === drag.start) {
+      if (drag.target === drag.start || dx * direction < 0) {
         drag.progress = 0;
-        paint(drag.start, drag.start, 0, clamp(dx * 0.08, -12, 12));
+        var resistance = Math.sign(dx) * 22 * (1 - Math.exp(-Math.abs(dx) / 120));
+        paint(drag.start, drag.start, 0, resistance, drag.pose);
       } else {
-        paint(drag.start, drag.target, drag.progress, 0);
+        paint(drag.start, drag.target, drag.progress, 0, drag.pose);
       }
     });
 
@@ -264,6 +323,73 @@
       if (drag) finish(false);
       select(target, true);
     });
+
+    function openEvidence(trigger) {
+      if (!block.shot) return;
+      if (!evidenceDialog) {
+        evidenceDialog = el('dialog', 'wc-lightbox');
+        evidenceDialog.setAttribute('aria-labelledby', instance + '-evidence-title');
+        var panel = el('div', 'wc-lightbox-panel');
+        var header = el('div', 'wc-lightbox-head');
+        var title = el('h2', 'wc-lightbox-title', block.shot.caption || '公开账号留存截图');
+        title.id = instance + '-evidence-title';
+        var close = el('button', 'wc-lightbox-close', '关闭 ×');
+        close.type = 'button';
+        close.setAttribute('aria-label', '关闭大图');
+        close.autofocus = true;
+        close.addEventListener('click', function () { evidenceDialog.close(); });
+        header.appendChild(title);
+        header.appendChild(close);
+        var image = el('img', 'wc-lightbox-image');
+        image.src = asset(block.shot.src);
+        image.alt = block.shot.alt || '';
+        panel.appendChild(header);
+        panel.appendChild(image);
+        if (block.shotUrl) {
+          var footer = el('div', 'wc-lightbox-foot');
+          var source = el('a', 'link', block.shotLabel);
+          source.href = block.shotUrl;
+          source.target = '_blank';
+          source.rel = 'noopener noreferrer';
+          footer.appendChild(source);
+          panel.appendChild(footer);
+        }
+        evidenceDialog.appendChild(panel);
+        root.appendChild(evidenceDialog);
+        evidenceDialog.addEventListener('click', function (event) {
+          if (event.target === evidenceDialog) evidenceDialog.close();
+        });
+        evidenceDialog.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            evidenceDialog.close();
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          var controls = Array.from(evidenceDialog.querySelectorAll('button:not([disabled]), a[href]'));
+          var first = controls[0];
+          var last = controls[controls.length - 1];
+          var focused = document.activeElement;
+          if (event.shiftKey && (focused === first || controls.indexOf(focused) === -1)) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && (focused === last || controls.indexOf(focused) === -1)) {
+            event.preventDefault();
+            first.focus();
+          }
+        });
+        evidenceDialog.addEventListener('close', function () {
+          document.documentElement.style.overflow = previousOverflow;
+          if (evidenceTrigger && evidenceTrigger.isConnected) evidenceTrigger.focus({ preventScroll: true });
+        });
+      }
+      if (evidenceDialog.open) return;
+      evidenceTrigger = trigger;
+      previousOverflow = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      evidenceDialog.showModal();
+    }
 
     function motionPreference() { root.classList.toggle('wc-reduced', reduced.matches); }
     motionPreference();
