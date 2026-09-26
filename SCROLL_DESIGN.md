@@ -30,7 +30,7 @@
 
 ## 自我介绍
 
-首屏之后、作品之前增加“关于我”，完整读取共享事实数据中的四段介绍；与旧站首页一致，未改写个人经历或新增事实。
+根据用户后续纠正，四段介绍现在完整放在首屏内部、毛笔姓名正下方，不再设独立“关于我”章节。仍读取共享事实数据，与旧站首页逐字一致。姓名保留毛笔字稿，介绍使用细线硬笔手写字体，形成粗细对比。
 
 ## 行书字稿
 
@@ -50,3 +50,17 @@ Composition: A compact wide horizontal name composition around 2.5:1, high resol
 Background: GENUINELY TRANSPARENT background, alpha channel preserved in the PNG, isolated ink strokes only. The transparent regions must not contain painted white, gray, cream, paper texture, or a checkerboard pattern.
 Constraints: Only black/gray monochrome ink. No red seal, no stamp, no watermark, no pinyin, no Latin letters, no borders, no illustration, no graphic decoration. Avoid mechanical Kaishu, Ming/Song type, uniformly chunky heavy black glyphs, and excessive splatter. Produce the finished name artwork alone, not a mockup, not a presentation board.
 ```
+
+## 界面微交互补充
+
+2026-09-26 用户继续要求更多 UI 反馈，同时强调自我介绍必须在首页姓名下面。
+
+- 查阅 [Codrops MagneticButtons](https://github.com/codrops/MagneticButtons) 的 `src/js/demo1/buttonCtrl.js`：保留“轻微跟手”的反馈，仅主行动文字移动最多 3px；不移动点击区域、不使用自定义光标、不跑常驻循环。
+- 查阅 [Codrops LineHoverStyles](https://github.com/codrops/LineHoverStyles) 的 `css/base.css`：用细线的 transform-origin 与 scaleX 表达链接状态，顶栏指示线在当前项和悬停项之间移动。两者均为 MIT 项目，此处机制参考、代码独立实现。
+- 作品分类在作品章内停靠，滚动时标出当前类别；使用额外锚点间距避免标题被两行导航遮住。这不是每件作品的数字分页。
+- 制作说明及个人项目说明使用原生 details；点击时用 Web Animations 平滑改变单个面板高度，结束恢复 auto。支持快速反向、原生键盘、动态减弱动效；滚动层会在尺寸变化后重新测量。
+- 首屏介绍按段短暂错峰进入，长文不做逐字打字效果。
+
+## 介绍字体
+
+采用 [YShi-Written / 写意体](https://github.com/Steve-Yuu/YShi-Written) 的细线硬笔手写字形，未把长段落生成成图片。按原介绍提取字形并重命名为 Portfolio Pen，保留 SIL OFL 1.1 许可（`assets/fonts/portfolio-pen/OFL.txt`）；WOFF2 子集约18KB，当前介绍所有字符已验证覆盖。仍可选择、复制和自适应换行。该字体提供硬笔手写观感，不将它宣称为一套新制作的钢笔行书字库。

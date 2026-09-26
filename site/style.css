@@ -18,6 +18,9 @@
   unicode-range:U+5468,U+6027,U+8FD0;
 }
 
+/* 介绍用真实的硬笔手写字形；子集与授权保存在 assets/fonts/portfolio-pen。 */
+@font-face{font-family:"Portfolio Pen";src:url("../assets/fonts/portfolio-pen/intro.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+
 /* ---------------------------------------------------------------- 1 令牌 */
 :root{
   /* 色彩：几乎无彩，彩色只留给作品 */
@@ -137,37 +140,31 @@ html.js .in .mask-i{transform:none;transition:transform var(--t-card) var(--ease
 /* 首屏：巨大的名字作为背景层，黏土形象叠压在他的名字之上。
    三点分布（左上信息 / 中央名字+形象 / 底部数据），只有一个焦点。 */
 .hero{
-  position:relative;
-  min-height:100svh;
-  overflow:hidden;                 /* 形象永不溢出视口 */
-  padding:0 var(--pad);
+  position:relative;display:flex;align-items:center;
+  min-height:max(100svh,820px);overflow:hidden;
+  padding:96px var(--edge) 145px;
 }
-.hero-head{position:static}        /* 旧结构兼容，不再参与布局 */
+.hero-head{position:relative;width:min(58vw,840px);display:flex;flex-direction:column;align-items:flex-start}
 .hero-name{
-  position:absolute;left:var(--edge);top:56%;
-  transform:translateY(-50%);
-  margin:0;z-index:1;pointer-events:none;
-  white-space:nowrap;
-  font-family:"Site Name",-apple-system,ui-sans-serif,"PingFang SC",sans-serif;
-  font-weight:400;
-  font-size:clamp(78px,18.5vw,278px);line-height:.82;letter-spacing:-.05em;
+  position:relative;left:auto;top:auto;transform:none;margin:0 0 0 -18px;z-index:1;pointer-events:none;
+  white-space:nowrap;font-family:"Site Name",-apple-system,ui-sans-serif,"PingFang SC",sans-serif;
+  font-weight:400;font-size:clamp(78px,16vw,240px);line-height:1;letter-spacing:-.05em;
 }
 .hero-name .mask{display:block;overflow:hidden;padding-bottom:.06em}
 .hero-name .mask-i{text-box:trim-both cap alphabetic}   /* 视觉间距＝真实间距（Chrome 133+/Safari 18.2+，不支持则忽略） */
 html.js .hero-name .mask-i{transition:transform var(--t-hero) var(--ease-expo)}
 html.js body.loaded .hero-name .mask-i{transform:none}
 .name-art{display:none;width:100%;height:auto}
-.hero-name.has-name-art{width:min(57vw,850px);font-size:0;line-height:0}
+.hero-name.has-name-art{width:min(50vw,800px);font-size:0;line-height:0}
 .has-name-art .name-art{display:block}
 .has-name-art .name-fallback{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.hero.has-calligraphy{--fig-x:clamp(69%,calc(55% + 230px),73%)}
-.hero-role{
-  position:absolute;left:var(--edge);top:clamp(94px,12svh,130px);
-  z-index:3;
-  display:flex;flex-direction:column;gap:4px;
-}
-.hero-role-main{font-size:clamp(17px,1.3vw,20px);line-height:1.65;color:var(--ink);max-width:36em;text-wrap:balance}
-.hero-role-sub{margin-top:10px;font-size:var(--f-xs);line-height:1.6;color:var(--ink-2);letter-spacing:.02em}
+.hero.has-calligraphy{--fig-x:clamp(65%,calc(46% + 420px),78%)}
+.hero-role{position:relative;z-index:3;margin:0 0 12px;display:flex;flex-direction:column}
+.hero-role-main{display:none}
+.hero-role-sub{font-size:var(--f-xs);line-height:1.6;color:var(--ink-2);letter-spacing:.04em}
+.hero-intro{position:relative;z-index:3;width:min(48vw,700px);margin-top:4px;font-family:"Portfolio Pen","Kaiti SC","KaiTi",serif;font-size:clamp(22px,1.6vw,25px);font-weight:400;line-height:1.45;letter-spacing:.012em;color:var(--ink)}
+.hero-intro p{margin:0;text-wrap:balance}
+.hero-intro p+p{margin-top:9px}
 html.js .hero-role,html.js .hero-proof{opacity:0}
 html.js .hero-proof{transform:translateY(10px)}
 html.js body.loaded .hero-role{opacity:1;transition:opacity var(--t-card) var(--ease-out) 80ms}
@@ -202,7 +199,7 @@ html.js body.loaded .figure{opacity:1}
 }
 
 /* 证据各有语境，点击回到对应内容；不用把不同口径拼成战绩总数。 */
-.hero-entry{position:absolute;z-index:4;left:var(--edge);bottom:clamp(154px,20svh,200px);font-size:var(--f-sm)}
+.hero-entry{position:relative;z-index:4;left:auto;bottom:auto;margin-top:22px;font-size:var(--f-sm)}
 .hero-entry span{display:inline-block;margin-left:40px;color:var(--accent);transition:transform var(--t-hover) var(--ease-out)}
 .hero-entry:hover span{transform:translate(3px,-3px)}
 .hero-proof{position:absolute;left:var(--edge);right:var(--edge);bottom:28px;z-index:3;display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:20px;padding-top:16px;border-top:1px solid var(--rule)}
@@ -215,14 +212,6 @@ html.js body.loaded .figure{opacity:1}
 .proof-item:hover .proof-context{color:var(--accent)}
 html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(--t-card) var(--ease-out) 160ms,transform var(--t-card) var(--ease-out) 160ms}
 .no-script{padding:30px var(--pad)}
-
-/* 原版首页自我介绍：完整保留四段文字，接在姓名之后、作品之前。 */
-.about{display:grid;grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr);gap:clamp(40px,7vw,110px);align-items:start}
-.about .sec-h{font-size:clamp(32px,3.4vw,48px)}
-.about-copy{max-width:66ch;color:var(--ink-2);font-size:var(--f-sm);line-height:1.9}
-.about-copy p+p{margin-top:16px}
-.about-copy .about-lead{font-size:clamp(20px,1.7vw,25px);line-height:1.8;color:var(--ink);margin-bottom:24px;text-wrap:pretty}
-@media(max-width:860px){.about{grid-template-columns:1fr;gap:12px}}
 
 /* ------------------------------------------------------------ 6 章节外壳 */
 .sec{
@@ -392,10 +381,10 @@ html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(
 }
 @media(max-width:600px){
   .bar-brand span{display:none}.bar-nav{gap:14px}.bar-nav a{font-size:11px}
-  .bar-brand{font-size:12px}.hero-role{top:92px}
-  .hero{--fig-x:50%;padding-top:38px}.figure{width:min(94%,52svh,520px)}
+  .bar-brand{font-size:12px}
+  .hero{padding-top:90px;min-height:1100px;align-items:flex-start}.hero-head{width:100%}.hero-name.has-name-art{width:95vw;max-width:100%}.hero-intro{width:100%;font-size:22px}.hero-stage{display:none}
   .hero-proof{grid-template-columns:1fr 1fr;gap:12px}.proof-value b,.proof-item--primary .proof-value b{font-size:23px}
-  .hero-entry{bottom:200px}.works-index{flex-wrap:wrap;gap:15px 28px}.works-index a{gap:12px}
+  .hero-entry{bottom:auto}.works-index{flex-wrap:wrap;gap:15px 28px}.works-index a{gap:12px}
   .viewer,.viewer--book,.viewer--peel{grid-template-columns:1fr;gap:24px}.viewer{--rw:150px;--rh:188px}
   .book{width:min(100%,320px)}.peel{aspect-ratio:1/1}
   .blk--video .blk-steps{grid-template-columns:1fr;gap:12px}

@@ -559,6 +559,7 @@
     renderPractice();
     renderSectionLeads();
     renderContact();
+    if (window.initInterfaceMotion) window.__interfaceMotion = window.initInterfaceMotion({flat:FLAT});
     if (window.initScrollMotion) window.__scrollMotion = window.initScrollMotion({flat:FLAT});
     observeReveals();
     initBar();

@@ -1,0 +1,45 @@
+/* 克制的界面反馈：命中区域始终不动，文字、线条与内容层响应操作。 */
+html.js .hero-intro p{--intro-order:0;opacity:0;transform:translateY(7px)}
+html.js .hero-intro p:nth-child(2){--intro-order:1}
+html.js .hero-intro p:nth-child(3){--intro-order:2}
+html.js .hero-intro p:nth-child(4){--intro-order:3}
+html.js body.loaded .hero-intro p{opacity:1;transform:none;transition:opacity 700ms var(--ease-out) calc(180ms + var(--intro-order)*70ms),transform 700ms var(--ease-out) calc(180ms + var(--intro-order)*70ms)}
+.bar-nav{position:relative}
+.bar-nav a{position:relative}
+.bar-nav a[aria-current="true"]::before{display:none}
+.ui-nav-line{position:absolute;left:0;bottom:-7px;width:1px;height:1px;background:var(--accent);pointer-events:none;opacity:0;transform-origin:0 50%;transition:transform 320ms var(--ease-out),opacity 160ms var(--ease-out)}
+.ui-magnetic-content{display:inline-block;transform:translate3d(var(--mag-x,0px),var(--mag-y,0px),0);transition:transform 160ms var(--ease-out);pointer-events:none}
+.hero-entry{padding:8px 0}
+.hero-entry span:not(.ui-magnetic-content){margin-left:32px}
+.hero-entry>.ui-magnetic-content{margin:0;color:inherit}
+.hero-entry:hover>.ui-magnetic-content{transform:translate3d(var(--mag-x,0px),var(--mag-y,0px),0)}
+.works-index a{position:relative;padding:8px 0}
+.works-index{position:sticky;top:var(--bar);z-index:35;background:var(--paper);padding:10px 0 12px}
+.blk{scroll-margin-top:calc(var(--bar) + 74px)}
+.works-index a[aria-current="true"]{color:var(--ink)}
+.works-index a[aria-current="true"]::after{transform:scaleX(1);transform-origin:0 50%}
+.works-index a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--accent);transform:scaleX(0);transform-origin:100% 50%;transition:transform 320ms var(--ease-out)}
+.works-index a:hover::after,.works-index a:focus-visible::after{transform:scaleX(1);transform-origin:0 50%}
+.works-index a span,.cap-arrow{transition:transform 160ms var(--ease-out)}
+.works-index a:hover span,.cap:hover .cap-arrow{transform:translate(3px,-3px)}
+.proof-item{transition:transform 160ms var(--ease-out)}
+.proof-item:hover{transform:translateY(-3px)}
+.ui-disclosure{display:flow-root}
+.work-notes summary::after{content:"+"!important;transition:transform 240ms var(--ease-out)}
+.work-notes.ui-expanded summary::after{transform:rotate(45deg)}
+.pr-making summary{list-style:none;display:flex;justify-content:space-between;gap:16px}
+.pr-making summary::-webkit-details-marker{display:none}
+.pr-making summary::after{content:"+";transition:transform 240ms var(--ease-out)}
+.pr-making.ui-expanded summary::after{transform:rotate(45deg)}
+.pr-play img{transition:filter 240ms var(--ease-out)}
+.pr-play:hover img{filter:brightness(1.045)}
+.pr-play-label{transition:transform 240ms var(--ease-out)}
+.pr-play:hover .pr-play-label{transform:translateY(-3px)}
+.copy-mail:active{transform:translateY(1px)}
+@media(prefers-reduced-motion:reduce){
+  html.js .hero-intro p{opacity:1!important;transform:none!important;transition:none!important}
+  .ui-nav-line,.ui-magnetic-content,.works-index a::after,.cap-arrow,.proof-item,.pr-play-label,.pr-play img{transition:none!important}
+  .proof-item:hover,.ui-magnetic-content,.pr-play:hover .pr-play-label{transform:none!important}
+}
+html.flat .ui-magnetic-content{transform:none!important}
+html.flat .hero-intro p{opacity:1!important;transform:none!important}
