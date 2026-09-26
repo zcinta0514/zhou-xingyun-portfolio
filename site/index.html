@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="viewers.css">
 <link rel="stylesheet" href="cabinet.css">
+<link rel="stylesheet" href="scroll.css">
 <!-- 有 JS 时才启用入场；无脚本时保留姓名和简历入口。 -->
 <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -20,6 +21,7 @@
 <header class="bar" id="bar">
   <a class="bar-brand" href="#home">周性运 <span>Lucky</span></a>
   <nav class="bar-nav" aria-label="章节导航">
+    <a href="#about" data-nav="about">关于</a>
     <a href="#works" data-nav="works">作品</a>
     <a href="#experience" data-nav="experience">经历</a>
     <a href="#practice" data-nav="practice">个人项目</a>
@@ -33,7 +35,7 @@
   <!-- ① 首屏：形象站主位，名字、定位、四个真实数字分列三角 -->
   <section class="hero" id="home" aria-labelledby="hero-name">
     <div class="hero-head">
-      <h1 class="hero-name" id="hero-name"><span class="mask"><span class="mask-i">周性运</span></span></h1>
+      <h1 class="hero-name" id="hero-name" aria-label="周性运"><span class="mask"><span class="mask-i"><span class="name-fallback">周性运</span><img class="name-art" id="name-art" src="../assets/raw/type/name-xingshu-v1.png" width="1983" height="793" alt="" aria-hidden="true" fetchpriority="high"></span></span></h1>
       <p class="hero-role">
         <span class="hero-role-main" id="hero-claim"></span>
         <span class="hero-role-sub" id="hero-role-sub"></span>
@@ -48,6 +50,11 @@
     <nav class="hero-proof" id="hero-proof" aria-label="代表作品与数据"></nav>
   </section>
   <noscript><p class="no-script">作品交互需要启用 JavaScript。你也可以直接<a href="../assets/resume-zhou-xingyun.pdf">下载简历</a>。</p></noscript>
+
+  <section class="sec about" id="about" aria-labelledby="about-h">
+    <h2 class="sec-h" id="about-h" data-rv><span class="mask"><span class="mask-i">关于我</span></span></h2>
+    <div class="about-copy" id="about-copy"></div>
+  </section>
 
   <!-- ② 四种作品装置，目录按内容名称直达。 -->
   <div class="works-ground">
@@ -113,6 +120,7 @@
 <script src="figure.js"></script>
 <script src="viewers.js"></script>
 <script src="cabinet.js"></script>
+<script src="scroll.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

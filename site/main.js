@@ -291,6 +291,14 @@
   /* ------------------------------------------------------------ 2 首屏 */
   var boxes = [];                                  // 四个真实数字的引用，用于只播一次的计数
   function renderHero() {
+    var wordmark = document.getElementById('name-art');
+    function showWordmark() {
+      if (!wordmark.naturalWidth) return;
+      document.getElementById('hero-name').classList.add('has-name-art');
+      document.getElementById('home').classList.add('has-calligraphy');
+    }
+    if (wordmark.complete) showWordmark();
+    else wordmark.addEventListener('load', showWordmark, {once:true});
     document.getElementById('hero-claim').textContent = S.identity.claim;
     document.getElementById('hero-role-sub').textContent = S.identity.title + ' · ' + S.identity.cohort;
     var box = document.getElementById('hero-proof');
@@ -310,6 +318,13 @@
   }
   function fmtProof(p, v) {
     return (p.dec ? v.toFixed(p.dec) : num(Math.round(v))) + p.suffix;
+  }
+
+  function renderAbout() {
+    var box = document.getElementById('about-copy');
+    S.identity.about.forEach(function (paragraph, index) {
+      box.appendChild(el('p', index === 0 ? 'about-lead' : '', paragraph));
+    });
   }
 
   /* ------------------------------------------------------- 5 能力 / 经历 / 项目 */
@@ -502,8 +517,8 @@
   function initBar() {
     var bar = document.getElementById('bar');
     var links = [].slice.call(bar.querySelectorAll('[data-nav]'));
-    var secs = { works: 'works', experience: 'experience', practice:'practice', contact: 'contact' };
-    var order = ['works', 'experience', 'practice', 'contact'];
+    var secs = { about:'about', works: 'works', experience: 'experience', practice:'practice', contact: 'contact' };
+    var order = ['about', 'works', 'experience', 'practice', 'contact'];
     var on = null, current = null, ticking = false;
 
     function sync() {
@@ -537,12 +552,14 @@
   /* ------------------------------------------------------------ 8 启动 */
   function init() {
     renderHero();
+    renderAbout();
     renderWorks();
     renderCaps();
     renderExps();
     renderPractice();
     renderSectionLeads();
     renderContact();
+    if (window.initScrollMotion) window.__scrollMotion = window.initScrollMotion({flat:FLAT});
     observeReveals();
     initBar();
 

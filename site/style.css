@@ -156,6 +156,11 @@ html.js .in .mask-i{transform:none;transition:transform var(--t-card) var(--ease
 .hero-name .mask-i{text-box:trim-both cap alphabetic}   /* 视觉间距＝真实间距（Chrome 133+/Safari 18.2+，不支持则忽略） */
 html.js .hero-name .mask-i{transition:transform var(--t-hero) var(--ease-expo)}
 html.js body.loaded .hero-name .mask-i{transform:none}
+.name-art{display:none;width:100%;height:auto}
+.hero-name.has-name-art{width:min(57vw,850px);font-size:0;line-height:0}
+.has-name-art .name-art{display:block}
+.has-name-art .name-fallback{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.hero.has-calligraphy{--fig-x:clamp(69%,calc(55% + 230px),73%)}
 .hero-role{
   position:absolute;left:var(--edge);top:clamp(94px,12svh,130px);
   z-index:3;
@@ -210,6 +215,14 @@ html.js body.loaded .figure{opacity:1}
 .proof-item:hover .proof-context{color:var(--accent)}
 html.js body.loaded .hero-proof{opacity:1;transform:none;transition:opacity var(--t-card) var(--ease-out) 160ms,transform var(--t-card) var(--ease-out) 160ms}
 .no-script{padding:30px var(--pad)}
+
+/* 原版首页自我介绍：完整保留四段文字，接在姓名之后、作品之前。 */
+.about{display:grid;grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr);gap:clamp(40px,7vw,110px);align-items:start}
+.about .sec-h{font-size:clamp(32px,3.4vw,48px)}
+.about-copy{max-width:66ch;color:var(--ink-2);font-size:var(--f-sm);line-height:1.9}
+.about-copy p+p{margin-top:16px}
+.about-copy .about-lead{font-size:clamp(20px,1.7vw,25px);line-height:1.8;color:var(--ink);margin-bottom:24px;text-wrap:pretty}
+@media(max-width:860px){.about{grid-template-columns:1fr;gap:12px}}
 
 /* ------------------------------------------------------------ 6 章节外壳 */
 .sec{
