@@ -135,7 +135,7 @@
     {
       kind: 'poster', id: B_POSTER, name: '视觉创意', count: S.instagram.works.length + ' 件', cols: 4,
       goal: S.instagram.brief,
-      role: S.instagram.works[2].credit,
+      role: '', // 每件作品的职责随翻页显示，不把某一件的团队归属套给整个板块
       how: S.instagram.tags.join(' · '),
       note: S.instagram.note,
       items: IG
@@ -211,259 +211,12 @@
     return head;
   }
 
-  /* ------------------------------------------------- 2.6 四块各自的版式 */
-  function deckOld() { /* 主片换成带架后就不再需要单独的 feature 块 */ }
-
-  /* ------------------------------------------------- 2.6 翻阅装置 */
-  /* 作品块不再把东西平铺出来。每块是一台自己的翻阅装置，一次只完整露出一个：
-       短视频   ring 转轮 —— 圆环绕 Y 轴转，正面那盘对着你，背面自动消失
-       视觉创意 book 翻书 —— 一次只见一页，页面绕书脊转出去、露出下一页
-       长文     peel 掀角 —— 版面从右下角整张掀开，露出下一版
-       内容规划       —— 不是作品集，是“我怎么干的”，单独做成一台抽屉（见 renderCabinet）
-     外壳（计数 / 上一件 下一件 / 圆点 / 信息栏 / 键盘）四块共用，
-     真正不同的是各自那台舞台的机械动作。
-
-     舞台接口（三个可选）：
-       init(i)      建好后的初始状态
-       begin(i,p)   切换一开始就调（机械动作从这里出发）
-       settle(i)    到 swapAt 时调（用于舞台内部的内容换位）
-       finish(i)    机械动作结束后调（复位、备下一轮）
-     注意：对被 IntersectionObserver 观察的元素不要下 clip-path，
-     被裁到 0 面积就永远等不到揭示回调（PROGRESS.md 记过）。 */
+  /* 四台装置使用真实素材直接操作，面板只显示内容与不可点击的进度。 */
   var viewers = {};
-
-  // ---- 舞台：转轮 ----
-  function stageRing(v) {
-    var box = el('div', 'ring');
-    var inner = el('div', 'ring-in');
-    var step = 360 / v.items.length;                 // 6 盘 → 每盘 60°，正好一圈
-    v.figs = [];
-    v.items.forEach(function (item, i) {
-      var f = el('figure', 'ring-i');
-      // 半径由卡宽推出来：正六边形外接圆 R = w / (2·tan30°) = w × .866
-      f.style.transform = 'rotateY(' + (i * step) + 'deg) translateZ(calc(var(--rw) * .866))';
-      var im = el('img');
-      im.src = asset(item.media); im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
-      f.appendChild(im);
-      inner.appendChild(f);
-      v.figs.push(f);
-    });
-    box.appendChild(inner);
-    v.inner = inner; v.step = step;
-    function mark(i) { v.figs.forEach(function (f, n) { f.classList.toggle('is-on', n === i); }); }
-    return {
-      el: box, swapAt: 320, dur: 700,
-      init: function (i) { inner.style.transform = 'rotateY(' + (-i * step) + 'deg)'; mark(i); },
-      begin: function (i) { inner.style.transform = 'rotateY(' + (-i * step) + 'deg)'; mark(i); },  // 整圈转 60° = 轮回
-      settle: function () {}
-    };
-  }
-
-  // ---- 舞台：翻书 ----
-  // 两层就够：下层放“下一页”，上层绕书脊转出去；过 90° 后背面不可见，
-  // 下面那页自然就露出来了。转完再把上层复位、换成当前页。
-  function stageBook(v) {
-    var box = el('div', 'book');
-    var under = el('figure', 'book-page book-under');
-    var leaf = el('figure', 'book-page book-leaf');
-    var uim = el('img'), lim = el('img');
-    uim.alt = ''; lim.alt = '';
-    under.appendChild(uim); leaf.appendChild(lim);
-    box.appendChild(under); box.appendChild(leaf);
-    var edges = el('div', 'book-edges');           // 右侧一叠纸边的暗示
-    for (var k = 0; k < 4; k++) edges.appendChild(el('span', 'book-edge'));
-    box.appendChild(edges);
-    v.under = uim; v.leaf = lim;
-    function set(node, item) { node.src = asset(item.media); node.alt = item.title; }
-    return {
-      el: box, swapAt: 420, dur: 720,
-      init: function (i) {
-        set(lim, v.items[i]);
-        set(uim, v.items[(i + 1) % v.items.length]);
-      },
-      begin: function (i) {
-        set(uim, v.items[i]);                     // 转出去之后露出来的就是这一页
-        leaf.classList.add('is-flipping');
-      },
-      finish: function (i) {
-        leaf.style.transition = 'none';           // 复位不能带过渡，否则会倒着转回去
-        leaf.classList.remove('is-flipping');
-        void leaf.offsetHeight;
-        leaf.style.transition = '';
-        set(lim, v.items[i]);
-        set(uim, v.items[(i + 1) % v.items.length]);
-      }
-    };
-  }
-
-  // ---- 舞台：撕角（报纸版面从右下角掀开）----
-  // 长文没有图，版面本身就是内容：大标题 + 版号 + 阅读数，靠字撑起来。
-  function stagePeel(v) {
-    var box = el('div', 'peel');
-    var under = el('article', 'peel-page peel-under');
-    var leaf = el('article', 'peel-page peel-leaf');
-    box.appendChild(under); box.appendChild(leaf);
-    v.underEl = under; v.leafEl = leaf;
-    function fill(node, item) {
-      node.textContent = '';
-      var top = el('p', 'peel-top');
-      top.appendChild(el('span', 'peel-issue', '第 ' + (v.items.indexOf(item) + 1) + ' 版'));
-      top.appendChild(el('span', null, '虎扑 · 长文'));
-      node.appendChild(top);
-      node.appendChild(el('h5', 'peel-head', item.title));
-      node.appendChild(el('p', 'peel-face', item.face || ''));
-      node.appendChild(stats(el('p', 'peel-meta'), item.meta));
-    }
-    v.fill = fill;
-    return {
-      el: box, swapAt: 400, dur: 720,
-      init: function (i) {
-        fill(leaf, v.items[i]);
-        fill(under, v.items[(i + 1) % v.items.length]);
-      },
-      begin: function (i) {
-        fill(under, v.items[i]);
-        leaf.classList.add('is-peeling');
-      },
-      finish: function (i) {
-        leaf.style.transition = 'none';
-        leaf.classList.remove('is-peeling');
-        void leaf.offsetHeight;
-        leaf.style.transition = '';
-        fill(leaf, v.items[i]);
-        fill(under, v.items[(i + 1) % v.items.length]);
-      }
-    };
-  }
-
-  var STAGES = { ring: stageRing, book: stageBook, peel: stagePeel };
-
-  /* ---- 外壳 ---- */
-  function viewerPaint(v, i) {
-    var item = v.items[i];
-    v.count.textContent = (i + 1) + ' / ' + v.items.length;
-    v.title.textContent = item.title;
-    v.face.textContent = item.face || '';
-    v.why.textContent = item.body || '';
-    stats(v.meta, item.meta);
-    // 副数字只用于 TikTok 那种三项数据（中间那项赞），两项数据的块不再重复一遍
-    stats(v.sub, item.stats.length > 2 ? item.stats.slice(1, 2) : []);
-    if (item.url) {
-      v.link.href = item.url;
-      v.link.textContent = item.urlText || '打开原帖';
-      v.link.hidden = false;
-    } else v.link.hidden = true;
-    v.dots.forEach(function (d, n) {
-      d.classList.toggle('is-on', n === i);
-      if (n === i) d.setAttribute('aria-current', 'true');
-      else d.removeAttribute('aria-current');
-    });
-  }
-
-  function viewerGo(v, i) {
-    if (i === v.i) return;
-    var prev = v.i;
-    v.i = i;
-    v.stage.begin(i, prev);
-    if (INSTANT) {
-      if (v.stage.settle) v.stage.settle(i);
-      if (v.stage.finish) v.stage.finish(i);
-      viewerPaint(v, i);
-      return;
-    }
-    // 文字在机械动作走到一半（这时看不见舞台）时换掉，再从另一侧淡回来
-    v.panel.classList.add('is-turning');
-    clearTimeout(v.timer);
-    v.timer = setTimeout(function () {
-      if (v.stage.settle) v.stage.settle(i);
-      viewerPaint(v, i);
-      v.panel.classList.remove('is-turning');
-    }, v.stage.swapAt);
-    if (v.stage.finish) {
-      clearTimeout(v.timer2);
-      v.timer2 = setTimeout(function () { v.stage.finish(i); }, v.stage.dur);
-    }
-  }
-
-  function viewerStep(v, d) {
-    var n = v.items.length;
-    viewerGo(v, (v.i + d + n) % n);          // 到头回到开头，一圈一圈转
-  }
-
   function buildViewer(block, items, kind) {
-    var v = { id: block.id, items: items, i: 0, kind: kind };
-    var wrap = el('div', 'viewer viewer--' + kind);
-    wrap.dataset.viewer = block.id;                 // viewerKeys 靠它找回是哪台装置
-    wrap.setAttribute('data-rv', '');
-
-    v.stage = STAGES[kind](v);
-    wrap.appendChild(v.stage.el);
-
-    var panel = el('div', 'vpanel');
-    v.count = el('span', 'v-count');
-    var n = el('p', 'v-n');
-    n.appendChild(v.count);
-    var nav = el('span', 'v-nav');
-    var prev = el('button', 'v-btn', '‹ 上一件');
-    var next = el('button', 'v-btn', '下一件 ›');
-    prev.type = 'button'; next.type = 'button';
-    prev.addEventListener('click', function () { viewerStep(v, -1); });
-    next.addEventListener('click', function () { viewerStep(v, 1); });
-    nav.appendChild(prev); nav.appendChild(next);
-    n.appendChild(nav);
-
-    // 一圈数字点：看得出“一共几件、现在第几件”，但不透内容
-    var dots = el('div', 'v-dots');
-    dots.setAttribute('role', 'group');
-    dots.setAttribute('aria-label', '选择作品');
-    v.dots = [];
-    items.forEach(function (item, i) {
-      var d = el('button', 'v-dot');
-      d.type = 'button';
-      d.textContent = String(i + 1);
-      d.setAttribute('aria-label', '第 ' + (i + 1) + ' 件：' + item.title);
-      d.addEventListener('click', function () { viewerGo(v, i); });
-      dots.appendChild(d);
-      v.dots.push(d);
-    });
-
-    v.title = el('h4', 'v-title');
-    v.face = el('p', 'v-face');
-    v.meta = el('p', 'v-meta');
-    v.sub = el('p', 'v-sub');
-    v.why = el('p', 'v-why');
-    v.link = el('a', 'link v-link');
-    v.link.target = '_blank'; v.link.rel = 'noopener noreferrer';
-    [n, dots, v.title, v.face, v.meta, v.sub, v.why, v.link]
-      .forEach(function (x) { panel.appendChild(x); });
-    wrap.appendChild(panel);
-    v.panel = panel;
-
-    v.stage.init(0);
-    viewerPaint(v, 0);
-    viewers[v.id] = v;
-    return wrap;
-  }
-
-  /* 抽屉柜：拉出一个、看一步。窗口固定高，靠 translateX 滑动，不动高度 */
-  function cabGo(cab, i) {
-    if (i === cab.i) return;
-    cab.i = i;
-    cab.drawer.style.transform = 'translateX(' + (-i * 100) + '%)';
-    cab.handles.forEach(function (b, n) { b.classList.toggle('is-on', n === i); });
-  }
-
-  function viewerKeys(e) {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    var a = document.activeElement;
-    if (!a || !a.closest) return;
-    var host = a.closest('.viewer');
-    if (!host) return;                             // 焦点在装置里才接管方向键
-    var v = viewers[host.dataset.viewer];
-    if (!v) return;
-    e.preventDefault();
-    viewerStep(v, e.key === 'ArrowRight' ? 1 : -1);
-    v.dots[v.i].focus({ preventScroll: true });
+    var node = window.createWorkViewer(block, items, kind, {el:el, asset:asset, stats:stats, instant:INSTANT});
+    viewers[block.id] = node;
+    return node;
   }
 
   function renderWorks() {
@@ -486,49 +239,7 @@
         side.appendChild(el('p', 'blk-note', b.note));
         blk.appendChild(side);
 
-        var body = el('div', 'blk-body cabinet');
-        body.setAttribute('data-rv', '');
-        var handles = el('ul', 'cab-handles');
-        var hop = el('div', 'cab-hop');               // 抽屉口：固定窗口，里面滑动
-        var drawer = el('div', 'cab-drawer');
-        var sheets = [];
-        var cab = { drawer: drawer, handles: [], sheets: sheets, i: 0 };
-        hop.appendChild(drawer);
-        b.steps.forEach(function (s, n) {
-          var li = el('li');
-          var btn = el('button', 'cab-handle');
-          btn.type = 'button';
-          btn.style.setProperty('--n', String(n));      // 把手依次推入的错峰
-          btn.appendChild(el('b', 'cab-n', s.n));
-          btn.appendChild(el('span', 'cab-name', s.name));
-          btn.addEventListener('click', function () { cabGo(cab, n); });
-          li.appendChild(btn);
-          handles.appendChild(li);
-          cab.handles.push(btn);
-
-          var sheet = el('article', 'cab-sheet');
-          sheet.appendChild(el('p', 'cab-step', s.n + ' / ' + b.steps.length));
-          sheet.appendChild(el('h4', 'cab-h', s.name));
-          sheet.appendChild(el('p', 'cab-text', s.text));
-          if (n === b.steps.length - 1) {
-            // 最后一步带证据：日韩账号的公开页截图（去掉了就没有可核验的东西）
-            var fig = el('figure', 'cab-fig');
-            var si = el('img');
-            si.src = asset(b.shot.src); si.alt = b.shot.alt;
-            si.loading = 'lazy'; si.decoding = 'async';
-            fig.appendChild(si);
-            fig.appendChild(el('figcaption', 'pr-cap', b.shot.caption));
-            sheet.appendChild(fig);
-            var sa = el('a', 'link', b.shotLabel);
-            sa.href = b.shotUrl; sa.target = '_blank'; sa.rel = 'noopener noreferrer';
-            sheet.appendChild(sa);
-          }
-          sheets.push(sheet);
-          drawer.appendChild(sheet);
-        });
-        body.appendChild(handles);
-        body.appendChild(hop);
-        blk.appendChild(body);
+        blk.appendChild(window.createWorkCabinet(b, {el:el, asset:asset, instant:INSTANT}));
         indexEl.appendChild(blk);
         return;
       }
@@ -552,8 +263,16 @@
 
       if (b.kind === 'video') {
         /* 块 1：转轮。六条按播放降序，第一条是块里的峰值 */
-        blk.appendChild(buildHead(b));
+        blk.appendChild(buildHead(b, true));
         blk.appendChild(buildViewer(b, [b.lead].concat(b.items), 'ring'));
+        var process = el('details', 'work-notes');
+        process.appendChild(el('summary', null, '创作过程与我的职责'));
+        var notes = el('div', 'work-notes-body');
+        notes.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role]]));
+        notes.appendChild(buildSteps(b.how));
+        process.appendChild(notes);
+        blk.appendChild(process);
+        if (b.note) blk.appendChild(el('p', 'blk-note', b.note));
         indexEl.appendChild(blk);
         return;
       }
@@ -563,7 +282,7 @@
         blk.appendChild(buildHead(b, true));
         blk.appendChild(buildViewer(b, b.items, 'book'));
         var inCell = el('div', 'blk-meta--incell');
-        inCell.appendChild(buildMeta([['目标', b.goal], ['我负责的', b.role], ['怎么实现的', b.how]]));
+        inCell.appendChild(buildMeta([['目标', b.goal], ['怎么实现的', b.how]]));
         if (b.note) inCell.appendChild(el('p', 'blk-note', b.note));
         blk.appendChild(inCell);
         indexEl.appendChild(blk);
@@ -1036,7 +755,6 @@
     renderExps();
     renderPractice();
     renderSectionLeads();
-    document.addEventListener('keydown', viewerKeys);
     renderContact();
     observeReveals();
     initBar();
@@ -1066,7 +784,8 @@
     get state() {
       return {
         open: openCard ? openCard.id : null,
-        count: cards.length, flat: FLAT, reduce: REDUCE,
+        count: TT_ALL.length + IG.length + HP.length, flat: FLAT, reduce: REDUCE,
+        viewers: Object.keys(viewers).map(function (id) { return viewers[id].viewerState; }),
         proof: boxes.map(function (b) { return b.el.textContent; }),
         cards: cards.map(function (c) {
           var r = c.getBoundingClientRect();
