@@ -1,0 +1,12 @@
+Create a finished transparent-background calligraphic text artwork for the self-introduction underneath a large brush-calligraphy name on an elegant warm-ivory personal website.
+STYLE IS CRITICAL: confident, free-flowing Chinese RUNNING SCRIPT (行书), handwritten with a fine flexible fountain pen (钢笔行书). 潇洒、飒爽、舒展、有连笔和行气。Use real cursive connections within characters, naturally linked strokes, crisp sharp turns, varied pressure and long/short rhythms, slightly forward-leaning gestures, occasional fine hairline joins. Make the writing feel like a fluent calligrapher wrote a personal note in one breath. It must NOT look like a typeset handwriting font, school notebook upright print, regular script/楷书, rounded cute lettering, or rigidly separated square glyphs. It must also NOT be thick brush lettering: use lean fine-to-medium black ink strokes and clean pen edges, restrained pressure variation, no brush texture, no splatter, no overly long decorative swashes. Legible running script, not illegible wild cursive.
+FORMAT: wide horizontal transparent PNG, approximately 2048 by 800, left aligned lines, generous enough margins that no stroke is clipped. Consistent average character size across every line. Seven lines of text, moderate open line spacing; modest additional space between the original paragraphs (after lines 2, 3 and 5). No heading, no additional name logo, no border, seal, signature, watermark, graphic, ruled paper, or background. GENUINELY TRANSPARENT alpha background, not painted white or a checkerboard.
+TEXT ACCURACY: render every following character exactly, from top to bottom. All Chinese is simplified. The name is 周性运 (性 = 忄 + 生; 运 = 云 + 辶). Keep Lucky, AI, and 2027 spelled exactly and integrate the Latin letters in matching fluid pen handwriting. Do not omit or substitute any words. These are the exact seven lines:
+我是周性运，也可以叫我 Lucky。
+本科读数学，现在读应用经济学硕士，预计 2027 年毕业。
+最近在折腾各种 AI 工具，试着做点自己的小项目。
+在网易、虎扑和盛力世家实习过，
+做过海外社媒内容、社区运营，也在赛事现场忙过。
+平时爱看体育赛事。遇到新知识、新工具，
+总忍不住想多了解一点。
+The result must read as distinctly more expressive and cursive than ordinary hard-pen handwriting, while staying clear enough to read as a personal introduction. Use only black ink with natural antialiasing and transparency. Return the text artwork alone.

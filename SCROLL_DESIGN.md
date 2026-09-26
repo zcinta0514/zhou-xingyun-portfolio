@@ -64,3 +64,13 @@ Constraints: Only black/gray monochrome ink. No red seal, no stamp, no watermark
 ## 介绍字体
 
 采用 [YShi-Written / 写意体](https://github.com/Steve-Yuu/YShi-Written) 的细线硬笔手写字形，未把长段落生成成图片。按原介绍提取字形并重命名为 Portfolio Pen，保留 SIL OFL 1.1 许可（`assets/fonts/portfolio-pen/OFL.txt`）；WOFF2 子集约18KB，当前介绍所有字符已验证覆盖。仍可选择、复制和自适应换行。该字体提供硬笔手写观感，不将它宣称为一套新制作的钢笔行书字库。
+
+## 介绍行书字稿重做
+
+2026-09-26 用户指出普通细线硬笔字形仍显死板，要求更潇洒、飒爽的行书笔势，并明确允许生图辅助。
+
+- 使用内置 image_gen 新生成 `assets/raw/type/intro-xingshu-v1.png`：2006×784、RGBA、透明底，纯墨色钢笔行书。未改动已认可的毛笔姓名。
+- 七行字稿承载原来的四段介绍，目视逐句核对姓名、公司、2027、Lucky、AI 及正文。文字内容没有改写。
+- 提示词原文保存在 `assets/raw/type/intro-xingshu-v1.prompt.txt`。未通过 CSS 斜切或拉伸伪造行书，也未用脚本重绘字形。
+- 字稿加载完成后才代替可见的普通硬笔字体。原四段 DOM 文字仍供读屏器使用；图片失败则显示文字。字稿是图形资产，不宣称为新字库；原文在字稿模式下不支持直接拖选图中文字。
+- 姓名下方的位置、作品交互及滚动机制保持不变。本轮仅重做介绍字形及其显示/回退。

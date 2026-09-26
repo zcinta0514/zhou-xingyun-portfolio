@@ -4,6 +4,8 @@ html.js .hero-intro p:nth-child(2){--intro-order:1}
 html.js .hero-intro p:nth-child(3){--intro-order:2}
 html.js .hero-intro p:nth-child(4){--intro-order:3}
 html.js body.loaded .hero-intro p{opacity:1;transform:none;transition:opacity 700ms var(--ease-out) calc(180ms + var(--intro-order)*70ms),transform 700ms var(--ease-out) calc(180ms + var(--intro-order)*70ms)}
+html.js .intro-art{opacity:0;transform:translateY(7px)}
+html.js body.loaded .intro-art{opacity:1;transform:none;transition:opacity 700ms var(--ease-out) 180ms,transform 700ms var(--ease-out) 180ms}
 .bar-nav{position:relative}
 .bar-nav a{position:relative}
 .bar-nav a[aria-current="true"]::before{display:none}
@@ -37,9 +39,9 @@ html.js body.loaded .hero-intro p{opacity:1;transform:none;transition:opacity 70
 .pr-play:hover .pr-play-label{transform:translateY(-3px)}
 .copy-mail:active{transform:translateY(1px)}
 @media(prefers-reduced-motion:reduce){
-  html.js .hero-intro p{opacity:1!important;transform:none!important;transition:none!important}
+  html.js .hero-intro p,html.js .intro-art{opacity:1!important;transform:none!important;transition:none!important}
   .ui-nav-line,.ui-magnetic-content,.works-index a::after,.cap-arrow,.proof-item,.pr-play-label,.pr-play img{transition:none!important}
   .proof-item:hover,.ui-magnetic-content,.pr-play:hover .pr-play-label{transform:none!important}
 }
 html.flat .ui-magnetic-content{transform:none!important}
-html.flat .hero-intro p{opacity:1!important;transform:none!important}
+html.flat .hero-intro p,html.flat .intro-art{opacity:1!important;transform:none!important}

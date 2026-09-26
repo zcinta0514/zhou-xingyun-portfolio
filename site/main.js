@@ -325,6 +325,15 @@
     S.identity.about.forEach(function (paragraph, index) {
       box.appendChild(el('p', index === 0 ? 'about-lead' : '', paragraph));
     });
+    // 行书使用经过逐句核对的生成字稿，正文仍保留给读屏器及图片失败回退。
+    var intro = box.parentElement;
+    var art = el('img', 'intro-art');
+    art.alt = ''; art.setAttribute('aria-hidden', 'true');
+    art.width = 2006; art.height = 784; art.decoding = 'async';
+    art.addEventListener('load', function () { if (art.naturalWidth) intro.classList.add('has-intro-art'); }, {once:true});
+    art.src = asset('assets/raw/type/intro-xingshu-v1.png');
+    intro.insertBefore(art, box);
+    if (art.complete && art.naturalWidth) intro.classList.add('has-intro-art');
   }
 
   /* ------------------------------------------------------- 5 能力 / 经历 / 项目 */

@@ -165,6 +165,9 @@ html.js body.loaded .hero-name .mask-i{transform:none}
 .hero-intro{position:relative;z-index:3;width:min(48vw,700px);margin-top:4px;font-family:"Portfolio Pen","Kaiti SC","KaiTi",serif;font-size:clamp(22px,1.6vw,25px);font-weight:400;line-height:1.45;letter-spacing:.012em;color:var(--ink)}
 .hero-intro p{margin:0;text-wrap:balance}
 .hero-intro p+p{margin-top:9px}
+.intro-art{display:none;width:100%;height:auto;pointer-events:none}
+.has-intro-art .intro-art{display:block}
+.has-intro-art #about-copy{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 html.js .hero-role,html.js .hero-proof{opacity:0}
 html.js .hero-proof{transform:translateY(10px)}
 html.js body.loaded .hero-role{opacity:1;transition:opacity var(--t-card) var(--ease-out) 80ms}
