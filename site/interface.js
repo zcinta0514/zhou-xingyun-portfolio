@@ -11,11 +11,42 @@
 
     /* 导航的线在各文字下方移动，链接自身和点击范围不移动。 */
     var nav = document.querySelector('.bar-nav');
+    var header = document.getElementById('bar');
+    var menuButton = document.querySelector('.mobile-menu');
+    var mobile = matchMedia('(max-width: 1024px)');
+    function menu(open, restoreFocus) {
+      open = mobile.matches && open;
+      header.classList.toggle('menu-open', open);
+      menuButton.setAttribute('aria-expanded', String(open));
+      nav.inert = mobile.matches && !open;
+      if (restoreFocus) menuButton.focus({preventScroll:true});
+    }
+    menuButton.addEventListener('click', function () { menu(menuButton.getAttribute('aria-expanded') !== 'true', false); });
+    document.addEventListener('pointerdown', function (event) {
+      if (mobile.matches && !header.contains(event.target)) menu(false, false);
+    }, true);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && header.classList.contains('menu-open')) { event.preventDefault(); menu(false, true); }
+    });
+    header.addEventListener('click', function (event) {
+      var link = event.target.closest('a');
+      if (!link || !mobile.matches) return;
+      menu(false, false);
+      if (link.hash) requestAnimationFrame(function () {
+        var target = document.getElementById(link.hash.slice(1));
+        if (target) { if (!target.hasAttribute('tabindex')) target.tabIndex = -1; target.focus({preventScroll:true}); }
+      });
+    });
+    function menuMode() { menu(false, mobile.matches && nav.contains(document.activeElement)); }
+    if (mobile.addEventListener) mobile.addEventListener('change', menuMode);
+    else mobile.addListener(menuMode);
+    menuMode();
     var line = document.createElement('span');
     line.className = 'ui-nav-line'; line.setAttribute('aria-hidden', 'true');
     nav.appendChild(line);
     var hover = null;
     function navPosition() {
+      if (mobile.matches) { line.style.opacity = '0'; return; }
       var focused = nav.contains(document.activeElement) ? document.activeElement.closest('a') : null;
       var target = hover || focused || nav.querySelector('[aria-current="true"]');
       if (!target) { line.style.opacity = '0'; return; }
@@ -36,13 +67,15 @@
     var works = document.getElementById('works');
     var workLinks = Array.from(document.querySelectorAll('.works-index a'));
     var blocks = workLinks.map(function (link) { return document.querySelector(link.getAttribute('href')); });
+    var workIndex = document.querySelector('.works-index');
     var workCurrent = null, workFrame = 0;
     function workPosition() {
       workFrame = 0;
       var section = works.getBoundingClientRect(), selected = null;
-      if (section.top < innerHeight && section.bottom > 130) {
+      var readingLine = header.getBoundingClientRect().bottom + workIndex.offsetHeight + 24;
+      if (section.top < innerHeight && section.bottom > readingLine) {
         selected = workLinks[0];
-        blocks.forEach(function (block, i) { if (block.getBoundingClientRect().top <= 180) selected = workLinks[i]; });
+        blocks.forEach(function (block, i) { if (block.getBoundingClientRect().top <= readingLine) selected = workLinks[i]; });
       }
       if (selected === workCurrent) return;
       workCurrent = selected;

@@ -204,7 +204,7 @@
       if (!nextWidth || (!force && Math.abs(nextWidth - width) < 0.5)) return;
       if (drag) finish(false);
       width = nextWidth;
-      spine = width < 380 ? 36 : 42;
+      spine = width < 600 ? 44 : 42;
       paperWidth = Math.max(180, width - (files.length - 1) * spine);
       root.style.setProperty('--wc-spine', spine + 'px');
       files.forEach(function (entry) { entry.file.style.width = paperWidth + 'px'; });

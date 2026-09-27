@@ -334,6 +334,31 @@
     art.src = asset('assets/raw/type/intro-xingshu-v1.png');
     intro.insertBefore(art, box);
     if (art.complete && art.naturalWidth) intro.classList.add('has-intro-art');
+    // 手机重排同一张行书的完整词句，SVG 只改变取景窗口，不重画或拉伸笔画。
+    var mobileArt = el('div', 'intro-mobile-art');
+    mobileArt.setAttribute('aria-hidden', 'true');
+    var clips = [
+      [32,16,1180,110],
+      [32,126,1258,119], [1290,126,716,119],
+      [32,245,908,109], [940,245,1066,109],
+      [32,354,1150,109],
+      [32,463,1056,111], [1088,463,918,111],
+      [32,575,662,121], [694,575,900,121],
+      [32,696,820,88]
+    ];
+    clips.forEach(function (clip, i) {
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', clip.join(' '));
+      svg.setAttribute('width', clip[2]); svg.setAttribute('height', clip[3]);
+      svg.setAttribute('focusable', 'false');
+      svg.style.width = (clip[2] / 1300 * 100) + '%';
+      svg.classList.add('intro-mobile-line');
+      if (i === 2 || i === 4 || i === 7) svg.classList.add('paragraph-end');
+      var image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      image.setAttribute('href', art.src); image.setAttribute('width', '2006'); image.setAttribute('height', '784');
+      svg.appendChild(image); mobileArt.appendChild(svg);
+    });
+    intro.insertBefore(mobileArt, box);
   }
 
   /* ------------------------------------------------------- 5 能力 / 经历 / 项目 */
@@ -573,11 +598,23 @@
     observeReveals();
     initBar();
 
-    var figure = window.createFigure(document.getElementById('figure'), {
-      static: INSTANT,
+    var smallScreen = window.matchMedia('(max-width: 1024px), (pointer: coarse)');
+    var figureRoot = document.getElementById('figure');
+    var figureLabel = figureRoot.getAttribute('aria-label');
+    var figure = window.createFigure(figureRoot, {
+      static: INSTANT || smallScreen.matches,
       prefix: '../'
     });
     window.__figure = figure;                       // 自检钩子：读转角、看是否静止
+    function figureMode() {
+      if (figure) figure.setStatic(FLAT || smallScreen.matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      figureRoot.setAttribute('aria-label', smallScreen.matches ? '黏土质感的人物半身像' : figureLabel);
+    }
+    if (smallScreen.addEventListener) smallScreen.addEventListener('change', figureMode);
+    else smallScreen.addListener(figureMode);
+    var motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', figureMode);
+    figureMode();
 
     function boot() {
       document.body.classList.add('loaded');

@@ -11,7 +11,7 @@
     var html = document.documentElement;
     var flat = !!options.flat || html.classList.contains('flat') || /[?&]flat=1(?:&|$)/.test(location.search);
     var reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    var compact = window.matchMedia('(max-width: 860px)');
+    var compact = window.matchMedia('(max-width: 1024px), (pointer: coarse)');
     var destroyed = false, enabled = false, raf = 0, dirty = true;
     var updateCount = 0, measureCount = 0;
     var listeners = [], wrappers = [], created = [], scenes = [], headings = [], pointers = new Map();

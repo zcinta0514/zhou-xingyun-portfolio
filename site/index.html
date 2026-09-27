@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>周性运 · 内容策划与海外社媒运营</title>
 <meta name="description" content="周性运（Lucky）的个人作品集：TikTok 与 Instagram 内容策划、海外社媒与社区运营、赛事现场协作，以及用 AI 做的小项目。">
 <meta name="theme-color" content="#EFEDE6">
@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="cabinet.css">
 <link rel="stylesheet" href="scroll.css">
 <link rel="stylesheet" href="interface.css">
+<link rel="stylesheet" href="mobile.css">
 <!-- 有 JS 时才启用入场；无脚本时保留姓名和简历入口。 -->
 <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -21,7 +22,8 @@
 <!-- 轻导航从首屏就可使用，滚动后加纸色底。 -->
 <header class="bar" id="bar">
   <a class="bar-brand" href="#home">周性运 <span>Lucky</span></a>
-  <nav class="bar-nav" aria-label="章节导航">
+  <button class="mobile-menu" type="button" aria-controls="main-navigation" aria-expanded="false">菜单 <span aria-hidden="true"></span></button>
+  <nav class="bar-nav" id="main-navigation" aria-label="章节导航">
     <a href="#about" data-nav="about">关于</a>
     <a href="#works" data-nav="works">作品</a>
     <a href="#experience" data-nav="experience">经历</a>
