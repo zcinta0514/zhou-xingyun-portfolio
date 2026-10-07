@@ -278,7 +278,7 @@
       phoneDisplay: '178 5799 4564',
       github: 'zcinta0514',
       githubUrl: 'https://github.com/zcinta0514',
-      resume: { src: 'assets/resume-zhou-xingyun.pdf', name: '周性运_27届硕士_简历.pdf', note: '更新于 2026-09-03 · 2.4 MB' },
+      resume: { src: 'assets/resume-zhou-xingyun.pdf', name: '周性运_27届硕士_简历.pdf', note: '更新于 2026-09-25 · 558 KB' },
     },
   };
 
