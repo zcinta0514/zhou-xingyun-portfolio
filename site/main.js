@@ -303,7 +303,7 @@
     document.getElementById('hero-role-sub').textContent = S.identity.title + ' · ' + S.identity.cohort;
     var box = document.getElementById('hero-proof');
     var labels = ['TikTok · 单条视频', '虎扑 · 单篇长文', '开拍 RALLY · 个人项目', 'TikTok · 账号历史记录'];
-    var targets = ['#' + B_VIDEO, '#' + B_TEXT, '#practice', '#' + B_VIDEO];
+    var targets = ['#' + B_VIDEO, '#' + B_TEXT, '#practice-rally', '#' + B_VIDEO];
     S.proof.forEach(function (p, i) {
       var a = el('a', 'proof-item' + (p.peak ? ' proof-item--primary' : ''));
       a.href = targets[i]; a.title = p.label + '：' + p.source;
@@ -365,7 +365,7 @@
   function renderCaps() {
     var box = document.getElementById('caps');
     S.capabilities.forEach(function (c) {
-      var a = el('a', 'cap'); a.href = c.id === 'ai' ? '#practice' : c.jump;
+      var a = el('a', 'cap'); a.href = c.id === 'ai' ? '#works-ai' : c.jump;
       a.title = c.summary;
       a.appendChild(el('span', 'cap-name', c.name));
       a.appendChild(el('span', 'cap-short', c.short));
@@ -387,7 +387,9 @@
       var pts = el('ul', 'exp-points');
       e.points.forEach(function (point) { pts.appendChild(el('li', null, point)); });
       main.appendChild(pts);
-      var evidence = e.company === '网易'
+      var evidence = e.company === '心动'
+        ? [['project-cindy-video', '产品演示视频'], ['project-motion-atlas', '动效素材库']]
+        : e.company === '网易'
         ? [[B_VIDEO, '短视频作品'], [B_POSTER, '视觉创意'], [B_FLOW, '日韩内容协作']]
         : e.company === '虎扑' ? [[B_TEXT, '长文作品']] : [];
       if (evidence.length) {
@@ -457,9 +459,9 @@
   }
 
   function renderSectionLeads() {
-    document.getElementById('lead-works').textContent = '短视频、视觉创意、内容协作与长文。这里有我的分工、实现方式，以及作品的公开数据。';
+    document.getElementById('lead-works').textContent = '从 AI 工作流与产品视频，到海外社媒内容。看具体成果，也看我如何把它们做出来。';
     document.getElementById('lead-experience').textContent = S.sections.experience;
-    document.getElementById('lead-practice').textContent = S.sections.practice;
+    document.getElementById('lead-practice').textContent = '把自己的需要做成可以使用的工具：摄影调色、羽毛球小游戏，还有持续更新的个人账号。';
   }
 
   function renderContact() {
@@ -503,6 +505,7 @@
     }
     item('电话', C.phoneDisplay, 'tel:' + C.phone);
     item('GitHub', C.github, C.githubUrl);
+    item('作品集', '下载作品集 PDF', asset('assets/zhou-xingyun-portfolio.pdf'), '· 更新于 2026-10-08');
     item('简历', C.resume.name.replace(/^周性运_/, '').replace(/\.pdf$/, ''), asset(C.resume.src), '· ' + C.resume.note);
 
     // 口径：日期全部来自 content.js 的 source / note 字段，不另写
@@ -588,6 +591,7 @@
     renderHero();
     renderAbout();
     renderWorks();
+    window.renderProjectCases({el:el, asset:asset});
     renderCaps();
     renderExps();
     renderPractice();

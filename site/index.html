@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>周性运 · 内容策划与海外社媒运营</title>
-<meta name="description" content="周性运（Lucky）的个人作品集：TikTok 与 Instagram 内容策划、海外社媒与社区运营、赛事现场协作，以及用 AI 做的小项目。">
+<title>周性运 · 内容策划与 AI 应用实践</title>
+<meta name="description" content="周性运（Lucky）的个人作品集：心动实习中的 AI 工作流与视频制作、自建动效素材库、摄影调色工具，以及海外社媒与社区运营作品。">
 <meta name="theme-color" content="#EFEDE6">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="viewers.css">
@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="scroll.css">
 <link rel="stylesheet" href="interface.css">
 <link rel="stylesheet" href="mobile.css">
+<link rel="stylesheet" href="projects.css">
 <!-- 有 JS 时才启用入场；无脚本时保留姓名和简历入口。 -->
 <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -29,6 +30,7 @@
     <a href="#experience" data-nav="experience">经历</a>
     <a href="#practice" data-nav="practice">个人项目</a>
     <a href="#contact" data-nav="contact">联系</a>
+    <a class="bar-portfolio" href="../assets/zhou-xingyun-portfolio.pdf" download="周性运_作品集_2026-10-08.pdf">作品集 PDF</a>
     <a class="bar-cv" href="#" data-cv>简历 PDF</a>
   </nav>
 </header>
@@ -63,11 +65,13 @@
       <p class="sec-lead" id="lead-works"></p>
     </div>
     <nav class="works-index" aria-label="作品分类">
+      <a href="#works-ai">AI 实践 <span aria-hidden="true">↗</span></a>
       <a href="#works-tiktok">短视频 <span aria-hidden="true">↗</span></a>
       <a href="#works-instagram">视觉创意 <span aria-hidden="true">↗</span></a>
       <a href="#works-localization">内容协作 <span aria-hidden="true">↗</span></a>
       <a href="#works-hupu">长文 <span aria-hidden="true">↗</span></a>
     </nav>
+    <div id="works-ai" class="project-studio" aria-labelledby="studio-title"></div>
     <div class="blocks" id="index"></div>
   </section>
   </div>
@@ -95,7 +99,8 @@
       <h2 class="sec-h" id="pr-h" data-rv><span class="mask"><span class="mask-i">自己做的</span></span></h2>
       <p class="sec-lead" id="lead-practice"></p>
     </div>
-    <div class="practice" id="practice-body"></div>
+    <div id="practice-photo" class="photo-project" aria-labelledby="photo-title"></div>
+    <div id="practice-rally"><div class="practice" id="practice-body"></div></div>
     <div class="personal-account" id="personal-account"></div>
   </section>
 
@@ -121,6 +126,7 @@
 <script src="cabinet.js"></script>
 <script src="scroll.js"></script>
 <script src="interface.js"></script>
+<script src="projects.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

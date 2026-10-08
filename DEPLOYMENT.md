@@ -1,9 +1,12 @@
-# 新版发布
+# 网站发布
 
-2026-10-07：根首页进入 `site/` 新版，桌面与手机共用同一站点，保留查询参数与章节锚点。
+2026-10-08：增加心动实习、产品演示视频、动效素材库和摄影调色，作品集 PDF 同步更新为 17 页。
 
-正式入口：https://zcinta0514.github.io/zhou-xingyun-portfolio/
+- 正式网址：https://zhou-xingyun-portfolio.vercel.app/
+- GitHub Pages：https://zcinta0514.github.io/zhou-xingyun-portfolio/
+- 作品集 PDF：`assets/zhou-xingyun-portfolio.pdf`
+- 简历 PDF：`assets/resume-zhou-xingyun.pdf`
 
-GitHub Pages 从 main 分支根目录发布；`.nojekyll` 让静态资源直接发布。简历入口下载现有 PDF。Vercel 已同步：https://zhou-xingyun-portfolio.vercel.app 。2026-10-07 使用原项目完成生产部署，包含桌面最新简历。Vercel 当前通过 CLI 手动发布。旧版 PDF 导出工具为独立本地工作，不包含在本次发布中。
+根首页进入 `site/` 并保留查询参数与章节锚点。GitHub Pages 从 main 根目录发布；Vercel 通过原项目 CLI 生产部署。PDF 排版源位于 `portfolio-pdf/`，导出方式见该目录 README。
 
-新版源码在 `site/`，内容数据在 `versions/shared/content.js`。开发目录内未提交的旧站 PDF 改动保留，因此本次在独立的 `publish-responsive` worktree 中切换入口并发布。
+本轮使用独立发布分支整合新版页面，保留开发目录中的其他未提交工作。视频采用原始 1080p 成片，不自动播放。调色对比使用真实输出。

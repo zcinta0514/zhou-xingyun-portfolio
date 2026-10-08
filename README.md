@@ -1,27 +1,20 @@
 # 周性运个人作品集
 
-[![Live](https://img.shields.io/badge/Live-zhou--xingyun--portfolio.vercel.app-8A2BE2)](https://zhou-xingyun-portfolio.vercel.app) ![Tech](https://img.shields.io/badge/Tech-HTML%20%C2%B7%20CSS%20%C2%B7%20Vanilla%20JS-orange)
+[在线网站](https://zhou-xingyun-portfolio.vercel.app/) · [作品集 PDF](https://zhou-xingyun-portfolio.vercel.app/assets/zhou-xingyun-portfolio.pdf)
 
-
-这是周性运的个人作品集网站，内容包括个人经历、内容策划与制作、海外社媒运营、社区与活动实践、个人账号，以及 AI 羽毛球小游戏项目。
-
-线上地址：<https://zhou-xingyun-portfolio.vercel.app>
+产品运营、内容策划与 AI 应用实践。包含心动实习中的工作流与视频制作、动效素材库、摄影调色、海外社媒、社区内容，以及开拍 RALLY 游戏。
 
 ## 本地预览
 
-网站是原生 HTML、CSS 和 JavaScript，不需要构建。请在仓库根目录启动任意静态文件服务器，例如：
-
-```bash
-python -m http.server 8000
+```sh
+node tools/serve.mjs . 8899
 ```
 
-然后访问 <http://localhost:8000>。
+打开 `http://127.0.0.1:8899/`。零构建，页面也可直接以 `file://` 打开。
 
-## 目录
+- `site/`：当前网站，含桌面与手机交互。
+- `versions/shared/content.js`：内容与事实来源。
+- `assets/`：实际作品资源、作品集和简历 PDF。
+- `portfolio-pdf/`：17 页作品集 PDF 排版源及导出说明。
 
-- `index.html`：页面内容与项目数据
-- `styles/`：页面和响应式样式
-- `scripts/`：导航、作品切换、图片预览与能力模块交互
-- `assets/`：网站使用的图片、字体和简历 S�
-
-页面中涉及播放、互动和项目反馈的数据均在对应位置标明统计日期或来源口径。字体授权说明保存圫� `assets/fonts/`。
+发布说明见 `DEPLOYMENT.md`。数据保留各自记录时间与职责边界。
