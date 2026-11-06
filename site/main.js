@@ -310,7 +310,7 @@
       var b = el('b', null, fmtProof(p, p.value));
       boxes.push({ el:b, to:p.value, fmt:function (v) { return fmtProof(p, v); } });
       var value = el('span', 'proof-value'); value.appendChild(b);
-      value.appendChild(el('span', 'proof-unit', i === 0 ? '播放' : i === 1 ? '阅读' : i === 2 ? '玩家' : '粉丝'));
+      value.appendChild(el('span', 'proof-unit', i === 0 ? '播放' : i === 1 ? '阅读' : i === 2 ? '玩家 IP' : '粉丝'));
       a.appendChild(el('span', 'proof-context', labels[i]));
       a.appendChild(value);
       box.appendChild(a);
@@ -327,6 +327,47 @@
     });
     // 行书使用经过逐句核对的生成字稿，正文仍保留给读屏器及图片失败回退。
     var intro = box.parentElement;
+    if (S.identity.introArtwork) {
+      var ink = S.identity.introArtwork;
+      var handwritten = el('div', 'intro-ink');
+      handwritten.setAttribute('aria-hidden', 'true');
+      ink.paragraphs.forEach(function (fragments) {
+        var paragraph = el('div', 'intro-ink-paragraph');
+        fragments.forEach(function (clip) {
+          var fragment = Array.isArray(clip) ? null : clip;
+          if (fragment) clip = fragment.clip;
+          var source = fragment || ink;
+          var display = fragment ? fragment.display : clip.slice(2);
+          var span = el('span', 'intro-ink-fragment');
+          var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', clip.join(' '));
+          svg.setAttribute('width', display[0]); svg.setAttribute('height', display[1]);
+          svg.setAttribute('focusable', 'false');
+          svg.style.setProperty('--clip-w', display[0] + 'px');
+          svg.style.setProperty('--clip-h', display[1] + 'px');
+          var bitmap = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+          bitmap.setAttribute('href', asset(source.src));
+          bitmap.setAttribute('width', source.width); bitmap.setAttribute('height', source.height);
+          svg.appendChild(bitmap); span.appendChild(svg); paragraph.appendChild(span);
+        });
+        handwritten.appendChild(paragraph);
+      });
+      // 字稿加载成功才替换可见正文，避免加载失败时只剩空白。
+      var inkSources = [ink.src], loaded = 0, failed = false;
+      ink.paragraphs.forEach(function (fragments) {
+        fragments.forEach(function (fragment) {
+          if (fragment.src && inkSources.indexOf(fragment.src) < 0) inkSources.push(fragment.src);
+        });
+      });
+      inkSources.forEach(function (src) {
+        var loader = new Image();
+        loader.onload = function () { if (++loaded === inkSources.length && !failed) intro.classList.add('has-intro-ink'); };
+        loader.onerror = function () { failed = true; intro.classList.remove('has-intro-ink'); };
+        loader.src = asset(src);
+      });
+      intro.insertBefore(handwritten, box);
+      return;
+    }
     var art = el('img', 'intro-art');
     art.alt = ''; art.setAttribute('aria-hidden', 'true');
     art.width = 2006; art.height = 784; art.decoding = 'async';
